@@ -1,0 +1,19 @@
+# PR12-15-006 Fig 37 -- piN (pi-p) black solid, k=[250,400] MeV
+# F2^(piN)(x; Dk, Dtheta) -- charge exchange, neutron target
+scan_mode      = kbin
+output_name    = fig37_piN_kbin_250_400
+contribution   = pion
+dissociation   = charge_exchange
+form_factor    = exp_s
+lambda         = 1.56
+beam_energy    = 11.0
+electron_angle = 35.0
+x_min          = 0.05
+x_max          = 0.30
+nx             = 40
+k_min          = 0.250
+k_max          = 0.400
+cosph_min      = 0.342
+cosph_max      = 0.866
+ny             = 100
+nkt            = 5000

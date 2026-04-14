@@ -1,0 +1,20 @@
+# normal-and-proposal_neutron.png -- piDelta green dot-dash -- BoNuS acceptance
+scan_mode      = kbin
+output_name    = piDelta_kbin_060_250
+contribution   = pi_delta
+dissociation   = neutral
+form_factor    = exp_s
+lambda         = 1.33
+lambda_delta   = 1.39
+nucleon        = neutron
+beam_energy    = 11.0
+electron_angle = 12.0
+x_min          = 0.055
+x_max          = 0.20
+nx             = 40
+k_min          = 0.060
+k_max          = 0.250
+cosph_min      = 0.342
+cosph_max      = 0.866
+ny             = 100
+nkt            = 5000

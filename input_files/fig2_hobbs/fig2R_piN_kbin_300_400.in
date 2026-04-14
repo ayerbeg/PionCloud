@@ -1,0 +1,22 @@
+# arXiv:1411.2216 Fig 2 RIGHT -- pi0 exchange, proton target
+# k=[300,400] MeV -- one of the four coloured kbin curves
+# Paper uses neutral pion (pi0N) for proton target figure
+# nucleon=proton selects F2p as denominator in ratio output
+scan_mode      = kbin
+output_name    = fig2R_piN_kbin_300_400
+contribution   = pion
+dissociation   = neutral
+form_factor    = exp_s
+lambda         = 1.56
+nucleon        = proton
+beam_energy    = 11.0
+electron_angle = 35.0
+x_min          = 0.05
+x_max          = 0.30
+nx             = 40
+k_min          = .300
+k_max          = .400
+cosph_min      = 0.342
+cosph_max      = 0.866
+ny             = 100
+nkt            = 5000

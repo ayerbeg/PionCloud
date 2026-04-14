@@ -1,0 +1,1122 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---- packages ----
+\usepackage[margin=2.5cm,headheight=14pt]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{parskip}
+\sloppy
+
+% ---- colours ----
+\definecolor{codebg}{rgb}{0.97,0.97,0.97}
+\definecolor{codeframe}{rgb}{0.80,0.80,0.80}
+\definecolor{keywordcolor}{rgb}{0.0,0.4,0.7}
+\definecolor{commentcolor}{rgb}{0.4,0.5,0.4}
+\definecolor{stringcolor}{rgb}{0.7,0.2,0.1}
+\definecolor{titleblue}{rgb}{0.1,0.2,0.5}
+
+% ---- listings style ----
+\lstdefinestyle{cppstyle}{
+  backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{codeframe},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{keywordcolor}\bfseries,
+  commentstyle=\color{commentcolor}\itshape,
+  stringstyle=\color{stringcolor},
+  language=C++,
+  breaklines=true, breakatwhitespace=true,
+  tabsize=4, showstringspaces=false,
+  numbers=left, numberstyle=\tiny\color{gray}, numbersep=6pt
+}
+\lstdefinestyle{iniStyle}{
+  backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{codeframe},
+  basicstyle=\ttfamily\small,
+  commentstyle=\color{commentcolor}\itshape,
+  morecomment=[l]{\#},
+  breaklines=true,
+  numbers=none, showstringspaces=false
+}
+\lstdefinestyle{bashstyle}{
+  backgroundcolor=\color{codebg},
+  frame=single, rulecolor=\color{codeframe},
+  basicstyle=\ttfamily\small,
+  breaklines=true, showstringspaces=false
+}
+
+% ---- header/footer ----
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\textcolor{gray}{\small PionCloud Manual}}
+\lhead{\textcolor{gray}{\small v1.3}}
+\cfoot{\thepage}
+
+% ---- section formatting ----
+\titleformat{\section}{\large\bfseries\color{titleblue}}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries\color{titleblue}}{}{0em}{}
+
+% ---- hyperref ----
+\hypersetup{
+  colorlinks=true, linkcolor=titleblue, urlcolor=titleblue, citecolor=titleblue,
+  pdftitle={PionCloud Manual}, pdfauthor={PionCloud Developers}
+}
+
+% ---- custom commands ----
+\newcommand{\picloud}{\textsc{PionCloud}}
+\newcommand{\Ftwo}{F_2}
+\newcommand{\FtwoPi}{F_2^{(\pi N)}}
+\newcommand{\FtwoN}{F_2^n}
+\newcommand{\FtwoP}{F_2^p}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\param}[1]{\texttt{\textcolor{keywordcolor}{#1}}}
+\newcommand{\inikey}[1]{\texttt{\textbf{#1}}}
+
+% ============================================================
+\begin{document}
+% ============================================================
+
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+{\Huge\bfseries\color{titleblue} PionCloud}\\[0.5em]
+{\Large Pion Cloud Model Structure Function Calculator}\\[2em]
+{\large C++ port of the Hobbs--Melnitchouk Fortran pion-cloud suite}\\[1em]
+{\large User Manual --- Version 1.3}\\[3em]
+
+\begin{abstract}
+\noindent
+\picloud{} is a modular C++ library and executable for computing the
+leading pion-cloud contributions to nucleon structure functions
+$F_2^{(\pi N)}(x)$ and $F_2^{(\pi N)}(\theta_h)$ in the Sullivan
+process.  It is a direct, validated port of three Fortran programs
+(\texttt{3Var\_x.f}, \texttt{3Var\_theta.f}, \texttt{f2\_pi\_sub.f90})
+by T.~Hobbs and W.~Melnitchouk, extended with configurable scan modes,
+ROOT output, CTEQ6 neutron structure function evaluation, and a static
+library interface for embedding in other programs.
+The code was developed as a framework for BoNuS/TDIS analysis at JLab.
+\end{abstract}
+
+\vfill
+{\small Last updated: April 2026}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Introduction}
+% ============================================================
+
+\subsection{Physics background}
+
+In the Sullivan process, a nucleon $N$ fluctuates into a virtual
+meson--baryon pair ($M B$):
+\begin{equation}
+  N \;\longrightarrow\; M + B
+\end{equation}
+The leading contributions from the pion cloud are:
+\begin{align}
+  n &\to \pi^- + p \quad \text{(charge exchange, } \mathit{dis}=0\text{)} \\
+  p &\to \pi^0 + p \quad \text{(neutral exchange, } \mathit{dis}=1\text{)}
+\end{align}
+with subdominant contributions from $\rho N$ and $\pi\Delta$ channels.
+
+The tagged structure function, observed when the recoil proton is
+detected in a specific momentum and angular window, is:
+\begin{equation}
+  F_2^{(\pi N)}(x;\,\Delta k,\,\Delta\theta_h)
+  = \int_{\Delta k,\,\Delta\theta_h}
+    \rho_\mathrm{PS}(\theta_h, k)\;
+    f_{\pi N}(y, k_T)\;
+    F_2^{\pi}(x/y,\, Q^2)\;
+    dk\, d\theta_h
+\end{equation}
+where $\rho_\mathrm{PS}$ is the phase-space Jacobian, $f_{\pi N}$ is
+the pion splitting function, and $F_2^\pi$ is the pion structure
+function evaluated using GRV92 parton distributions.
+
+The ratio $F_2^{(\pi N)} / F_2^n$ is the core BoNuS observable ---
+it gives the fractional pion-cloud contribution to the neutron
+structure function for a given experimental acceptance.
+
+\subsection{Code history}
+
+The original Fortran programs were written by T.~Hobbs (2013--2014)
+with modifications by W.~Melnitchouk.  The C++ port
+(\picloud{}) preserves the physics exactly while adding configurability,
+a library interface, and ROOT output.
+
+Key references:
+\begin{itemize}
+\item Hobbs, Shanahan, Strikman (HSS): form factor parametrisation and
+  $\Lambda$ values used as defaults.
+\item Gl\"{u}ck, Reya, Vogt (GRV92): pion parton distributions,
+  Z.~Phys.~\textbf{C53} (1992) 651.
+\item Pumplin et al.\ (CTEQ6): nucleon PDFs,
+  JHEP \textbf{0207} (2002) 012.
+\end{itemize}
+
+% ============================================================
+\section{Building}
+% ============================================================
+
+\subsection{Prerequisites}
+
+\begin{itemize}
+\item CMake $\geq 3.14$ or g++ $\geq 7$
+\item C++17 or later
+\item \textbf{gfortran} (for CTEQ6 Fortran library; optional but recommended)
+\item \textbf{ROOT} $\geq 6$ (optional; required for \texttt{.root} output)
+\end{itemize}
+
+\subsection{Full build (ROOT + CTEQ6)}
+
+\begin{lstlisting}[style=bashstyle]
+source /path/to/root/bin/thisroot.sh
+cmake -B build -DUSE_ROOT=ON -DUSE_CTEQ6=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc)
+# binary: build/PionCloud
+# tests:  build/PionCloudTests
+\end{lstlisting}
+
+\subsection{Without ROOT or CTEQ6}
+
+\begin{lstlisting}[style=bashstyle]
+cmake -B build -DUSE_ROOT=OFF -DUSE_CTEQ6=OFF
+cmake --build build
+\end{lstlisting}
+
+Without CTEQ6: $F_2^n$ and the ratio are set to zero.
+Without ROOT: only ASCII output is produced.
+
+\subsection{Direct g++ (no CMake)}
+
+\begin{lstlisting}[style=bashstyle]
+# No optional dependencies
+g++ -std=c++17 -O3 -Iinclude \
+    src/Calculator.cc src/InputReader.cc src/OutputWriter.cc src/main.cc \
+    -o PionCloud
+
+# With ROOT and CTEQ6
+gfortran -O2 -c CTEQ6/Cteq6Pdf-2007.f -o Cteq6Pdf.o
+g++ -std=c++17 -O3 -Iinclude -DHAVE_ROOT -DHAVE_CTEQ6 \
+    src/Calculator.cc src/InputReader.cc src/OutputWriter.cc src/main.cc \
+    Cteq6Pdf.o $(root-config --cflags --libs) -lgfortran -o PionCloud
+\end{lstlisting}
+
+\subsection{CTEQ6 table files}
+
+The CTEQ6 library reads grid tables from the \emph{current working
+directory} at runtime.  Place the following files in \texttt{CTEQ6/}
+(CMake copies them to the build directory automatically):
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Iset} & \textbf{Name} & \textbf{File} \\
+\midrule
+1 & CTEQ6M (NLO MSbar, default) & \texttt{cteq6m.tbl} \\
+2 & CTEQ6D (NLO DIS)             & \texttt{cteq6d.tbl} \\
+3 & CTEQ6L (LO)                  & \texttt{cteq6l.tbl} \\
+4 & CTEQ6L1 (LO, $\alpha_s$ fitted) & \texttt{cteq6l1.tbl} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ============================================================
+\section{Running}
+% ============================================================
+
+\subsection{Quick start}
+
+\begin{lstlisting}[style=bashstyle]
+# 1. Generate a documented template input file
+./PionCloud --write-template myrun.in
+
+# 2. Edit the template, then run
+./PionCloud --input myrun.in
+
+# 3. Override any parameter from the command line
+./PionCloud --input myrun.in --kmin 0.100 --kmax 0.200 --out Run_100_200
+\end{lstlisting}
+
+\subsection{Scan modes}
+
+\picloud{} has four scan modes, selected by \inikey{scan\_mode}:
+
+\begin{center}
+\begin{tabular}{llp{4.2cm}p{3.8cm}}
+\toprule
+\textbf{Mode} & \textbf{Output} & \textbf{Integrated over}
+  & \textbf{Mirrors} \\
+\midrule
+\code{x}     & $F_2^{(\pi N)}(x)$
+  & $(\theta_h, |\vec{k}|)$
+  & \texttt{3Var\_x.f} \\
+\code{theta} & $F_2^{(\pi N)}(\theta_h)$
+  & $(x, |\vec{k}|)$
+  & \texttt{3Var\_theta.f} \\
+\code{kbin}  & $F_2^{(\pi N)}(x;\Delta k,\Delta\theta_h)$
+  & $(y, k_T)$ with $|\vec{k}|$ and $\cos\phi_k$ gates
+  & \texttt{f2\_pi\_sub.f90} \\
+\code{all}   & all of the above & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsubsection{\code{x} scan}
+
+Integrates over the hadron production angle $\theta_h$ and the recoil
+proton momentum magnitude $|\vec{k}|$ at each output Bjorken-$x$ point.
+Matches \texttt{3Var\_x.f} exactly.  Useful for computing
+$F_2^{(\pi N)}(x)$ as a function of $x$ for a given $|\vec{k}|$ tagging
+window.
+
+\subsubsection{\code{theta} scan}
+
+Integrates over $x$ and $|\vec{k}|$ at each output angle $\theta_h$.
+Matches \texttt{3Var\_theta.f} exactly.  Used to produce Fig.~47-style
+plots of the angular distribution $F_2^{(\pi N)}(\theta_h;\Delta x, \Delta k)$.
+The internal $x$ and $|\vec{k}|$ integration ranges are controlled by
+\inikey{x\_min\_th}, \inikey{x\_max\_th}, \inikey{k\_min\_th},
+\inikey{k\_max\_th}:
+\begin{itemize}
+  \item \textbf{Left panel} (Fig.~47): use defaults
+    ($\Delta x=[0, 0.6]$, $\Delta k=[0, 500]$~MeV).
+  \item \textbf{Right panel} (Fig.~47): set
+    \inikey{x\_min\_th=0.05}, \inikey{k\_min\_th=0.060},
+    \inikey{k\_max\_th=0.250}.
+\end{itemize}
+
+\subsubsection{\code{kbin} scan}
+
+Mirrors the \texttt{f2\_pi\_sub.f90} subroutine.  Integrates over
+$(y, k_T)$ at each output $x$ point with:
+\begin{enumerate}
+  \item An angular acceptance gate on $\cos\phi_k \in [\code{cosph\_min},\,\code{cosph\_max}]$
+    (default: $\cos 70^{\circ}$--$\cos 30^{\circ}$, i.e.\ $[0.342,\,0.866]$).
+  \item A $|\vec{k}|$ magnitude window $[\code{k\_min},\,\code{k\_max}]$.
+\end{enumerate}
+The $|\vec{k}|$ magnitude is computed analytically from $(k_T, y)$:
+\begin{equation}
+  |\vec{k}| = \sqrt{k_T^2 +
+    \frac{\left[k_T^2 + (1-(1-y)^2)m_N^2\right]^2}
+         {4\,m_N^2\,(1-y)^2}}
+\end{equation}
+This mode is used to produce the four $|\vec{k}|$-bin curves and the
+individual channel contributions ($\pi N$, $\rho N$, $\pi\Delta$).
+
+% ============================================================
+\section{Input file reference}
+% ============================================================
+
+The input file uses a simple INI-style format.  Lines beginning with
+\texttt{\#} are comments.  Section headers (\texttt{[...]})) are
+accepted but ignored.  All keys are case-insensitive.
+
+\subsection{Beam kinematics}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Key} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\inikey{beam\_energy}    & 11.0  & Electron beam energy $E$ [GeV] \\
+\inikey{electron\_angle} & 35.0  & Electron scattering angle $\theta_e$ [deg] \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Note:} \texttt{3Var\_theta.f} and \texttt{3Var\_x.f} hardcode
+$\theta_e = 35^{\circ}$.  The \texttt{f2\_pi\_sub} subroutine (kbin mode) was
+called with $\theta_e = 12^{\circ}$ in \texttt{f2\_pi\_ranges.c}.  Use 12$^{\circ}$
+for the kbin curves matching the published BoNuS figures.
+
+\subsection{Physics --- channel selection}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Key} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\inikey{contribution} & \texttt{pion}
+  & Meson-baryon channel: \texttt{pion} (0), \texttt{rho} (1), \texttt{pi\_delta} (2) \\
+\inikey{dissociation}  & \texttt{charge\_exchange}
+  & Charge config: \texttt{charge\_exchange} (0), \texttt{neutral} (1) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Charge exchange} (\textit{dis}=0): $n \to \pi^- + p$.
+Isospin factor $= 2$.  Used for the BoNuS $|\vec{k}|$-bin curves.
+
+\textbf{Neutral} (\textit{dis}=1): $p \to \pi^0 + p$.
+Isospin factor $= 1$.  Used for Fig.~47.
+
+\subsection{Physics --- form factor}
+
+\begin{center}
+\begin{tabular}{llp{7cm}}
+\toprule
+\textbf{Code} & \textbf{Name} & \textbf{Notes} \\
+\midrule
+0 & \texttt{monopole}    & $(L^2+m_N^2)/(L^2+s_{\pi N})$ \\
+1 & \texttt{dipole}      & monopole squared \\
+2 & \texttt{exp\_s}      & $\exp[(m_N^2-s_{\pi N})/L^2]$; HSS default \\
+3 & \texttt{cov\_dipole} & covariant dipole in $t$ \\
+4 & \texttt{dipole\_sch} & dipole, $s$-channel $\Lambda$ exchange \\
+5 & \texttt{exp\_t}      & $\exp[(t-m_\pi^2)/L^2]$ \\
+6 & \texttt{pauli\_villar} & Pauli--Villar; \textbf{C++ default} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Physics --- cutoff parameters}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Key} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\inikey{lambda}       & 1.33  & $\Lambda$ for $\pi N / \rho N$ vertex [GeV] \\
+\inikey{lambda\_delta} & 1.39 & $\Lambda$ for $\pi\Delta$ vertex [GeV] \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+For the HSS exponential form factor (\texttt{exp\_s}), the recommended
+values are:
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{Value} & \textbf{Meaning} \\
+\midrule
+$\Lambda = 1.56$~GeV & HSS central value \\
+$\Lambda = 1.63$~GeV & HSS $+1\sigma$ \\
+$\Lambda = 1.48$~GeV & HSS $-1\sigma$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Physics --- nucleon and PDF version}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Key} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\inikey{nucleon}      & \texttt{neutron} & \texttt{neutron} or \texttt{proton} for $F_2$ ratio denominator \\
+\inikey{grv\_version} & \texttt{92}      & Pion PDF: \texttt{92} (GRV92) or \texttt{99} (GRV99) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Run control and usability}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Key} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\inikey{scan\_mode}       & \texttt{all}    & \texttt{x}, \texttt{theta}, \texttt{kbin}, or \texttt{all} \\
+\inikey{precision}        & \texttt{custom} & \texttt{fast}, \texttt{normal}, \texttt{publication}, \texttt{custom} \\
+\inikey{inclusive\_mode}  & \texttt{false}  & Remove all kinematic cuts (fully inclusive) \\
+\inikey{verbose}          & \texttt{true}   & Print per-point progress to stdout \\
+\inikey{angle\_min\_deg}  & ---             & Alias: lower polar angle [deg] $\to$ \inikey{cosph\_max} \\
+\inikey{angle\_max\_deg}  & ---             & Alias: upper polar angle [deg] $\to$ \inikey{cosph\_min} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Key} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\inikey{x\_min}               & 0.02  & Minimum Bjorken-$x$ \\
+\inikey{x\_max}               & 0.30  & Maximum Bjorken-$x$ \\
+\inikey{nx}                   & 100   & Number of output $x$ points \\
+\inikey{n\_theta\_integration} & 100  & Internal $\theta_h$ steps \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{theta-scan settings}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Key} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\inikey{theta\_min}     & 0.0   & Lower $\theta_h$ bound [deg] \\
+\inikey{theta\_max}     & 100.0 & Upper $\theta_h$ bound [deg] \\
+\inikey{nth}            & 100   & Number of output $\theta_h$ points \\
+\inikey{n\_x\_integration} & 100 & Internal $x$ steps \\
+\inikey{x\_min\_th}     & $10^{-4}$ & Internal $x$ lower bound \\
+\inikey{x\_max\_th}     & 0.6   & Internal $x$ upper bound \\
+\inikey{k\_min\_th}     & $10^{-4}$ & Internal $|\vec{k}|$ lower bound [GeV] \\
+\inikey{k\_max\_th}     & 0.5   & Internal $|\vec{k}|$ upper bound [GeV] \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{kbin-scan settings}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Key} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\inikey{k\_min}     & 0.050 & Lower $|\vec{k}|$ bin bound [GeV] \\
+\inikey{k\_max}     & 0.100 & Upper $|\vec{k}|$ bin bound [GeV] \\
+\inikey{cosph\_min} & 0.342 & Min $\cos\phi_k$ ($= \cos 70^{\circ}$) \\
+\inikey{cosph\_max} & 0.866 & Max $\cos\phi_k$ ($= \cos 30^{\circ}$) \\
+\inikey{ny}         & 100   & Steps in $y$ integration \\
+\inikey{nkt}        & 50000 & Steps in $k_T$ integration \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Performance note:} \inikey{nkt=50000} matches the Fortran
+exactly but is slow.  Recommended values:
+\begin{itemize}
+  \item \inikey{nkt=1000}: quick checks ($\sim 5$--10\% accuracy)
+  \item \inikey{nkt=5000}: good accuracy ($< 1$\%)
+  \item \inikey{nkt=50000}: publication quality (matches Fortran)
+\end{itemize}
+
+\subsection{Output settings}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Key} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\inikey{output\_mode} & \texttt{all}    & \texttt{ascii}, \texttt{root}, \texttt{all}, \texttt{none} \\
+\inikey{output\_name} & \texttt{PionCloud} & File stem for output files \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ============================================================
+\section{Output files}
+% ============================================================
+
+With \inikey{output\_name = MyRun}:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+\textbf{File} & \textbf{Content} \\
+\midrule
+\texttt{MyRun\_params.txt}    & Full run parameters + first moments \\
+\texttt{MyRun\_xscan.dat}     & \texttt{x}, $Q^2$, $F_2^{(\pi N)}$, running moment [, $F_2^n$, ratio] \\
+\texttt{MyRun\_thetascan.dat} & $\theta_h$, $F_2^{(\pi N)}$, running moment \\
+\texttt{MyRun.root}           & TGraphs, TH1s, TCanvases, TNamed parameters \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{ROOT objects}
+
+Object names encode the channel and scan mode using the convention
+\texttt{<channel>\_<mode>}:
+\begin{itemize}
+  \item channel: \texttt{piN}, \texttt{piN\_neutral}, \texttt{rhoN}, \texttt{piDelta}
+  \item mode: \texttt{xscan}, \texttt{theta}, \texttt{kbin}
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Name} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\texttt{g\_<pfx>}             & TGraph  & $F_2^{(\text{channel})}(x)$ \\
+\texttt{g\_moment\_<pfx>}     & TGraph  & Running $\int F_2\,dx$ \\
+\texttt{h\_<pfx>}             & TH1D    & Same, as histogram \\
+\texttt{c\_<pfx>}             & TCanvas & Log-scale plot \\
+\texttt{g\_F2neutron}         & TGraph  & $F_2^n(x)$ from CTEQ6M (always this name) \\
+\texttt{g\_ratio\_<pfx>}      & TGraph  & $F_2^{(\text{channel})} / F_2^n$ \\
+\texttt{h\_ratio\_<pfx>}      & TH1D    & Ratio as histogram \\
+\texttt{c\_ratio\_<pfx>}      & TCanvas & Two-pad: curves (top) + ratio (bottom) \\
+\texttt{g\_thetascan}         & TGraph  & $F_2^{(\pi N)}(\theta_h)$ \\
+\texttt{g\_moment\_theta}     & TGraph  & Running $\int F_2\,d\theta$ \\
+\texttt{h\_thetascan}         & TH1D    & Same, as histogram \\
+\texttt{c\_thetascan}         & TCanvas & Angular distribution plot \\
+\texttt{RunParams}            & TNamed  & Full parameter summary string \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ============================================================
+\section{What's new in v1.3}
+% ============================================================
+
+\subsection{Nucleon selector}
+
+The reference nucleon for the ratio $F_2^{(\pi N)} / F_2^{\text{nucleon}}$
+can now be chosen:
+
+\begin{lstlisting}[style=iniStyle]
+nucleon = neutron    # default: F2n via charge symmetry (matches Fortran)
+nucleon = proton     # F2p directly from CTEQ6
+\end{lstlisting}
+
+\subsection{GRV99 pion PDF}
+
+An updated 1999 pion PDF parametrisation is available alongside the
+default GRV92:
+
+\begin{lstlisting}[style=iniStyle]
+grv_version = 92    # default: GRV92, matches original Fortran
+grv_version = 99    # GRV99 update from f2_pi_sub.f90
+\end{lstlisting}
+
+\subsection{Precision preset}
+
+Sets \inikey{ny} and \inikey{nkt} together for the kbin scan:
+
+\begin{lstlisting}[style=iniStyle]
+precision = fast          # ny=20,  nkT=500   -- quick checks
+precision = normal        # ny=50,  nkT=2000  -- development
+precision = publication   # ny=100, nkT=50000 -- matches Fortran (default)
+precision = custom        # use ny/nkT directly
+\end{lstlisting}
+
+\subsection{Inclusive mode shortcut}
+
+Removes all kinematic cuts (reproduces the fully inclusive $F_2^{(\pi N)}(x)$
+purple curve without manually setting four parameters):
+
+\begin{lstlisting}[style=iniStyle]
+inclusive_mode = true
+\end{lstlisting}
+
+Equivalent to setting \inikey{cosph\_min=0}, \inikey{cosph\_max=1},
+\inikey{k\_min=0.001}, \inikey{k\_max=10.0}.
+
+\subsection{Verbosity control}
+
+\begin{lstlisting}[style=iniStyle]
+verbose = false    # suppress all stdout (for library/generator embedding)
+\end{lstlisting}
+
+\subsection{Angular cut in degrees}
+
+Aliases for \inikey{cosph\_min}/\inikey{cosph\_max}:
+
+\begin{lstlisting}[style=iniStyle]
+angle_min_deg = 30.0    # lower polar angle -> cosph_max = cos(30) = 0.866
+angle_max_deg = 70.0    # upper polar angle -> cosph_min = cos(70) = 0.342
+\end{lstlisting}
+
+\subsection{CTEQ6 table directory}
+
+Allows running from an arbitrary working directory:
+
+\begin{lstlisting}[style=cppstyle]
+p.cteq6_table_dir = "/path/to/cteq6_tables";
+// Calculator chdir()s there before CTEQ6::init(), then restores cwd.
+\end{lstlisting}
+
+\subsection{Single-point eval() for generator use}
+
+\begin{lstlisting}[style=cppstyle]
+Calculator calc(p);
+double f2pi = calc.eval(x, Q2);   // Q2 <= 0: computed from E,x,theta_e
+\end{lstlisting}
+
+Returns $F_2^{(\pi N)}(x,Q^2)$ for one point. Always silent regardless
+of \code{p.verbose}. Suitable for event-by-event generator calls.
+
+\subsection{C interface for Python/Fortran}
+
+\begin{lstlisting}[style=cppstyle]
+#include "pioncloud_c.h"
+pioncloud_init_default();                    // default BoNuS config
+double f2pi = pioncloud_eval_f2pi(x, Q2);
+double f2n  = pioncloud_eval_f2n (x, Q2);
+double rat  = pioncloud_eval_ratio(x, Q2);
+\end{lstlisting}
+
+Python usage via \code{ctypes}:
+\begin{lstlisting}[style=bashstyle]
+import ctypes
+lib = ctypes.CDLL("./libPionCloudLib.so")
+lib.pioncloud_init_default.restype = None
+lib.pioncloud_eval_f2pi.restype    = ctypes.c_double
+lib.pioncloud_eval_f2pi.argtypes   = [ctypes.c_double, ctypes.c_double]
+lib.pioncloud_init_default()
+f2pi = lib.pioncloud_eval_f2pi(0.1, 2.0)
+\end{lstlisting}
+
+See \texttt{include/pioncloud\_c.h} for full Fortran interface documentation.
+
+\textbf{Thread safety warning:} CTEQ6 uses Fortran \texttt{COMMON} blocks
+and is not thread-safe.  Do not call from multiple threads simultaneously.
+
+
+
+\subsection{Fig.~47 left panel (theta scan, full acceptance)}
+
+\begin{lstlisting}[style=iniStyle]
+scan_mode   = theta
+output_name = Fig47_left
+contribution = pion
+dissociation = neutral      # p -> pi0 + p
+form_factor  = exp_s
+lambda       = 1.56
+beam_energy    = 11.0
+electron_angle = 35.0       # as in 3Var_theta.f
+theta_min = 0.0
+theta_max = 90.0
+nth       = 100
+n_x_integration = 100
+# defaults: x in [0, 0.6], k in [0, 500] MeV -- left panel
+\end{lstlisting}
+
+\subsection{Fig.~47 right panel (theta scan, constrained acceptance)}
+
+\begin{lstlisting}[style=iniStyle]
+scan_mode   = theta
+output_name = Fig47_right
+contribution = pion
+dissociation = neutral
+form_factor  = exp_s
+lambda       = 1.56
+beam_energy    = 11.0
+electron_angle = 35.0
+theta_min = 0.0
+theta_max = 90.0
+nth       = 100
+n_x_integration = 100
+x_min_th  = 0.05            # Delta_x = [0.05, 0.6]
+x_max_th  = 0.6
+k_min_th  = 0.060           # Delta_k = [60, 250] MeV
+k_max_th  = 0.250
+\end{lstlisting}
+
+\subsection{piN contribution with BoNuS acceptance (black curve)}
+
+\begin{lstlisting}[style=iniStyle]
+scan_mode      = kbin
+output_name    = piN_channel
+contribution   = pion
+dissociation   = charge_exchange
+form_factor    = exp_s
+lambda         = 1.56
+beam_energy    = 11.0
+electron_angle = 12.0       # as used in f2_pi_ranges.c
+x_min = 0.055
+x_max = 0.30
+nx    = 20
+k_min     = 0.060           # BoNuS full acceptance window
+k_max     = 0.250
+cosph_min = 0.342           # 30-70 degree cut
+cosph_max = 0.866
+ny    = 100
+nkt   = 5000
+\end{lstlisting}
+
+\subsection{Four k-bin curves (change k\_min/k\_max per run)}
+
+\begin{lstlisting}[style=iniStyle]
+# Run four times changing k_min and k_max:
+# Run 1: k_min=0.060, k_max=0.100  (red)
+# Run 2: k_min=0.100, k_max=0.200  (green)
+# Run 3: k_min=0.200, k_max=0.300  (blue)
+# Run 4: k_min=0.300, k_max=0.400  (yellow)
+scan_mode      = kbin
+contribution   = pion
+dissociation   = charge_exchange
+form_factor    = exp_s
+lambda         = 1.56
+beam_energy    = 11.0
+electron_angle = 12.0
+x_min = 0.055
+x_max = 0.33
+nx    = 20
+k_min = 0.060   # change per run
+k_max = 0.100   # change per run
+cosph_min = 0.342
+cosph_max = 0.866
+ny  = 100
+nkt = 5000
+\end{lstlisting}
+
+\subsection{rho-N and pi-Delta contributions}
+
+To reproduce the red ($\rho N$) and green ($\pi\Delta$) curves, use the
+same configuration as the piN example above but change:
+\begin{lstlisting}[style=iniStyle]
+# rho-N (red dashed):
+contribution = rho
+
+# pi-Delta (green dash-dot):
+contribution = pi_delta
+lambda       = 1.39    # use lambda_delta for pi-Delta
+\end{lstlisting}
+
+% ============================================================
+\section{Class and API reference}
+% ============================================================
+
+\subsection{RunParams (PhysicsParams.hh)}
+
+The central configuration struct.  All fields have sensible defaults.
+Can be constructed and filled entirely in C++ without an input file.
+
+\begin{lstlisting}[style=cppstyle]
+#include "PhysicsParams.hh"
+PionCloud::RunParams p;
+p.flag       = PionCloud::FLAG_PION;
+p.typ        = PionCloud::FF_EXP_S;
+p.L          = 1.56;
+p.dis        = PionCloud::DIS_CHARGE_EXCHANGE;
+p.E          = 11.0;
+p.theta_e    = 12.0;
+p.kmin       = 0.060;
+p.kmax       = 0.250;
+p.cosph_min  = 0.342;
+p.cosph_max  = 0.866;
+p.ny         = 100;
+p.nkT        = 5000;
+p.outputMode = PionCloud::OUT_NONE;  // no file I/O
+\end{lstlisting}
+
+\textbf{Key enumerations:}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Enum} & \textbf{Values} & \textbf{Key} \\
+\midrule
+\code{FormFactorType}  & \code{FF\_MONOPOLE..FF\_PAULI\_VILLAR} & \inikey{form\_factor} \\
+\code{ContributionFlag} & \code{FLAG\_PION, FLAG\_RHO, FLAG\_PI\_DELTA} & \inikey{contribution} \\
+\code{DisChannel}      & \code{DIS\_CHARGE\_EXCHANGE, DIS\_NEUTRAL} & \inikey{dissociation} \\
+\code{OutputMode}      & \code{OUT\_NONE, OUT\_ASCII, OUT\_ROOT, OUT\_ALL} & \inikey{output\_mode} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Calculator (Calculator.hh)}
+
+The integration engine.  No I/O dependencies.
+
+\begin{lstlisting}[style=cppstyle]
+#include "Calculator.hh"
+PionCloud::Calculator calc(p);
+
+PionCloud::ScanResults res;
+calc.runXScan(res);         // x-scan (3Var_x.f)
+calc.runThetaScan(res);     // theta-scan (3Var_theta.f)
+calc.runKBinScan(res);      // kbin-scan (f2pi_sub.f90)
+
+// Or run the mode selected by p.scanMode:
+PionCloud::ScanResults res2 = calc.runAll();
+\end{lstlisting}
+
+\textbf{Public methods:}
+
+\begin{center}
+\begin{tabular}{lp{8cm}}
+\toprule
+\textbf{Method} & \textbf{Description} \\
+\midrule
+\code{runXScan(out)}     & x-scan; fills \code{out.xScan} \\
+\code{runThetaScan(out)} & theta-scan; fills \code{out.thetaScan} \\
+\code{runKBinScan(out)}  & kbin-scan; fills \code{out.xScan} \\
+\code{runAll()}          & runs modes selected by \code{p\_.scanMode}; returns \code{ScanResults} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Private static helpers:}
+
+\begin{center}
+\begin{tabular}{lp{8cm}}
+\toprule
+\textbf{Method} & \textbf{Description} \\
+\midrule
+\code{kMag(kT, y)}   & 3D recoil proton momentum magnitude from $(k_T, y)$ \\
+\code{cosPhi(kT, y)} & Proton polar angle $\cos\phi_k$ from $(k_T, y)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{ScanResults and data structures (Results.hh)}
+
+Plain structs with no ROOT or file-system dependencies:
+
+\begin{lstlisting}[style=cppstyle]
+struct XScanPoint {
+    double x;           // Bjorken-x
+    double Q2;          // Q^2 at this x [GeV^2]
+    double F2piK;       // F2^pi(x) integrated over phase space
+    double F2piMoment;  // running integral
+    double F2n;         // F2^n from CTEQ6 (0 if unavailable)
+    double ratio;       // F2piK / F2n
+};
+
+struct ThetaScanPoint {
+    double theta_deg;   // hadron production angle [degrees]
+    double F2piK;       // F2^pi(theta_h)
+    double F2piMoment;  // running integral
+};
+
+struct ScanResults {
+    std::vector<XScanPoint>     xScan;
+    std::vector<ThetaScanPoint> thetaScan;
+    double F2pi0_x     = 0.0;  // first moment (Simpson)
+    double F2pi0_theta = 0.0;
+};
+\end{lstlisting}
+
+\subsection{InputReader (InputReader.hh)}
+
+Parses INI-style input files.  Optional --- \code{RunParams} can be
+set directly in C++ without using this class.
+
+\begin{lstlisting}[style=cppstyle]
+#include "InputReader.hh"
+PionCloud::InputReader reader;
+PionCloud::RunParams p = reader.read("myrun.in");
+
+if (reader.hasErrors()) {
+    reader.printDiagnostics();
+    return 1;
+}
+
+// Generate a fully documented template file:
+PionCloud::InputReader::writeTemplate("myrun.in");
+\end{lstlisting}
+
+\subsection{OutputWriter (OutputWriter.hh)}
+
+Writes ASCII and/or ROOT output.  Controlled by
+\code{p.outputMode}.
+
+\begin{lstlisting}[style=cppstyle]
+#include "OutputWriter.hh"
+PionCloud::OutputWriter writer(p, "MyRun");
+writer.write(results);
+\end{lstlisting}
+
+\subsection{CTEQ6 (CTEQ6.hh)}
+
+C++ wrapper for the CTEQ6 Fortran PDF library.  Handles all
+float/double casts internally.
+
+\begin{lstlisting}[style=cppstyle]
+#include "CTEQ6.hh"
+PionCloud::CTEQ6::init();                        // call once
+double f2n = PionCloud::CTEQ6::F2neutron(x, Q2);
+double f2p = PionCloud::CTEQ6::F2proton (x, Q2);
+double xfu = PionCloud::CTEQ6::xfx(1, x, Q);   // u-quark
+\end{lstlisting}
+
+\textbf{Available functions:}
+
+\begin{center}
+\begin{tabular}{lp{8cm}}
+\toprule
+\textbf{Function} & \textbf{Description} \\
+\midrule
+\code{init(set)}          & Initialise PDF tables (default: CTEQ6M, iset=1) \\
+\code{xfx(iparton,x,Q)}  & $x\,f(x,Q)$ for parton code \code{iparton} \\
+\code{F2neutron(x,Q2)}   & $F_2^n$ via charge symmetry \\
+\code{F2proton(x,Q2)}    & $F_2^p$ directly from CTEQ6 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Parton codes:} 0=gluon, 1=u, 2=d, 3=s, 4=c, 5=b;
+negative values for antiquarks.
+
+\subsection{Physics functions (SplittingFunctions.hh, GRV.hh, Kinematics.hh)}
+
+All inline, header-only, no dependencies:
+
+\begin{center}
+\begin{tabular}{lp{9cm}}
+\toprule
+\textbf{Function} & \textbf{Description} \\
+\midrule
+\code{fypiN(y,kT,L,typ,dis)}   & $\pi N$ splitting function (TOPT) \\
+\code{f\_rhoN(y,kT,L,typ,dis)} & $\rho N$ splitting function \\
+\code{f\_RhoDel(y,kT,L,typ,dis)} & $\rho\Delta$ splitting function \\
+\code{fypiD(y,kT,Ld,typ,dis)}  & $\pi\Delta$ splitting function (SU(4)) \\
+\code{GRV92(xi,Q2,xV,xS)}      & GRV92 LO pion PDFs \\
+\code{F2piGRV(xi,Q2)}          & $(5/9)(xV+2xS)$: electromagnetic combination \\
+\code{calcQ2(E,x,theta\_e)}    & $Q^2$ from beam kinematics \\
+\code{simpsonWeight(i,n)}       & Composite Simpson weight for index $i$ of $n$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ============================================================
+\section{Using PionCloud as a library}
+% ============================================================
+
+\picloud{} is built as a static library \texttt{libPionCloudLib.a}.
+Any C++ program can embed it:
+
+\begin{lstlisting}[style=bashstyle]
+# In your CMakeLists.txt:
+add_subdirectory(PionCloud)
+target_link_libraries(MyProgram PRIVATE PionCloudLib)
+\end{lstlisting}
+
+\begin{lstlisting}[style=cppstyle]
+#include "PhysicsParams.hh"
+#include "Calculator.hh"
+#include "Results.hh"
+
+using namespace PionCloud;
+
+RunParams p;
+p.flag       = FLAG_PION;
+p.typ        = FF_EXP_S;
+p.L          = 1.56;
+p.dis        = DIS_CHARGE_EXCHANGE;
+p.E          = 11.0;  p.theta_e = 12.0;
+p.kmin       = 0.060; p.kmax    = 0.250;
+p.cosph_min  = 0.342; p.cosph_max = 0.866;
+p.ny  = 100;  p.nkT = 5000;
+p.outputMode = OUT_NONE;   // no files written
+p.scanMode   = "kbin";
+
+Calculator calc(p);
+ScanResults res;
+calc.runKBinScan(res);
+
+for (auto &pt : res.xScan)
+    printf("x=%.4f  Q2=%.4f  F2piK=%.6e  F2n=%.6e  ratio=%.6e\n",
+           pt.x, pt.Q2, pt.F2piK, pt.F2n, pt.ratio);
+\end{lstlisting}
+
+\textbf{Current limitations for generator use} (see TODO.md):
+\begin{itemize}
+  \item No single-point \code{eval(x, Q2)} method: full scan must be run.
+  \item No verbosity control: progress is printed to \code{stdout}.
+  \item CTEQ6 reads table files from the current working directory.
+  \item CTEQ6 is not thread-safe (Fortran \texttt{COMMON} blocks).
+\end{itemize}
+
+% ============================================================
+\section{CLI reference}
+% ============================================================
+
+\begin{lstlisting}[style=bashstyle]
+./PionCloud [--input FILE] [OPTIONS]
+
+--input FILE              Read parameters from INI file
+--write-template FILE     Write documented template and exit
+
+--mode x|theta|kbin|all   Scan mode
+--output ascii|root|all|none  Output format
+--out STEM                Output file stem
+
+# Physics
+--flag 0|1|2              Contribution (pion/rho/pi_delta)
+--dis  0|1                Dissociation channel
+--typ  0..6               Form factor type
+--L    GeV                Lambda (pi/rho-N)
+--Ld   GeV                Lambda (Delta)
+--E    GeV                Beam energy
+--theta_e DEG             Electron scattering angle
+
+# x-scan
+--xmin --xmax --nx --nth-int
+
+# theta-scan
+--thmin --thmax --nth --nx-int
+--xmin-th --xmax-th --kmin-th --kmax-th
+
+# kbin-scan / |k| window
+--kmin --kmax --nk
+--ny --nkt --cosph-min --cosph-max
+\end{lstlisting}
+
+% ============================================================
+\section{Project layout}
+% ============================================================
+
+\begin{lstlisting}[style=bashstyle]
+PionCloud/
+|---- CMakeLists.txt
+|---- README.md
+|---- TODO.md
+|---- Fig47_left.in          # ready-to-use input: Fig.47 left panel
+|---- Fig47_right.in         # ready-to-use input: Fig.47 right panel
+|---- CTEQ6/
+|     |---- Cteq6Pdf-2007.f    # Fortran PDF library (v6.52)
+|     |---- cteq6m.tbl         # iset=1 NLO MSbar (default)
+|     |---- cteq6d.tbl / cteq6l.tbl / cteq6l1.tbl
+|     `---- README
+|---- include/
+|     |---- PhysicsParams.hh   # RunParams, enums
+|     |---- SplittingFunctions.hh  # fypiN, f_rhoN, f_RhoDel, fypiD
+|     |---- GRV.hh             # GRV92 pion PDFs
+|     |---- Kinematics.hh      # Q2, phase space, Simpson weights
+|     |---- Results.hh         # XScanPoint, ThetaScanPoint, ScanResults
+|     |---- Calculator.hh      # main integration engine
+|     |---- CTEQ6.hh           # extern C bridge to Fortran
+|     |---- InputReader.hh     # INI file parser
+|     `---- OutputWriter.hh    # ASCII + ROOT writer
+|---- src/
+|     |---- Calculator.cc
+|     |---- InputReader.cc
+|     |---- OutputWriter.cc
+|     `---- main.cc
+|---- tests/
+|     |---- CMakeLists.txt
+|     `---- test_all.cc        # 153 tests, 0 failures
+`---- docs/
+    `---- PionCloud_manual.tex   # this document
+\end{lstlisting}
+
+% ============================================================
+\section{Known issues and TODO}
+% ============================================================
+
+The complete list is maintained in \texttt{TODO.md}.
+Summary of high-priority items:
+
+\begin{enumerate}
+\item \textbf{Nucleon selector}: \inikey{nucleon = neutron|proton}
+  to choose between $F_2^n$ and $F_2^p$ in the ratio.
+  \code{F2proton()} already exists in \texttt{CTEQ6.hh}; only wiring
+  is needed.
+
+\item \textbf{GRV99 pion PDF}: add the 1999 parametrisation as
+  \inikey{grv\_version = 92|99}.
+
+\item \textbf{Theta-scan ROOT names}: \texttt{g\_thetascan} etc.\
+  should use the \texttt{<channel>\_<mode>} prefix.
+
+\item \textbf{kbin \inikey{nkt} default is slow}: 50000 steps is
+  publication-quality but takes O(hours) for \inikey{nx=100}.
+  Use \inikey{nkt=5000} for development.
+
+\item \textbf{Generator interface}: single-point \code{eval()},
+  verbosity control, configurable CTEQ6 table path, and a C
+  \code{extern "C"} wrapper for Python/Fortran interoperability.
+
+\item \textbf{t-scan mode}: F$_2^{(\pi N)}$ vs Mandelstam $-t$,
+  binning the $(y, k_T)$ integrand by $t = -k_T^2 - m_N^2 y^2/(1-y)$.
+\end{enumerate}
+
+% ============================================================
+\end{document}
+\end{lstlisting>

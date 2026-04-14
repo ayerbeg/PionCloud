@@ -1,0 +1,15 @@
+# arXiv:1411.2216 Fig 2 LEFT -- rhoN fully integrated (red dashed)
+scan_mode      = kbin
+output_name    = fig2L_rhoN_fullyintegrated
+contribution   = rho
+dissociation   = neutral
+form_factor    = exp_s
+lambda         = 1.33
+beam_energy    = 11.0
+electron_angle = 35.0
+x_min          = 0.05
+x_max          = 0.30
+nx             = 40
+inclusive_mode = true
+ny             = 100
+nkt            = 5000

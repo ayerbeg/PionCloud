@@ -1,0 +1,20 @@
+# PR12-15-006 Fig 35 LEFT (neutron) -- piN k=[300,350] MeV
+# ratio F2^(piN)/F2n vs x
+scan_mode      = kbin
+contribution   = pion
+form_factor    = exp_s
+lambda         = 1.56
+beam_energy    = 11.0
+electron_angle = 35.0
+x_min          = 0.05
+x_max          = 0.25
+nx             = 40
+cosph_min      = 0.342
+cosph_max      = 0.866
+ny             = 100
+nkt            = 5000
+output_name    = fig35_neutron_piN_kbin_300_350
+dissociation   = charge_exchange
+nucleon        = neutron
+k_min          = 0.300
+k_max          = 0.350

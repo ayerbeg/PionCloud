@@ -1,0 +1,44 @@
+# ============================================================
+#  Fig.47 RIGHT PANEL
+#  F2^(pi0 p)(theta_p ; Delta_x, Delta_k)
+#  Delta_x = [0.05, 0.6]
+#  Delta_k = [60, 250] MeV
+#  (neutral exchange, pi contribution, exp_s FF, L=1.56)
+# ============================================================
+
+[Run Control]
+scan_mode   = theta
+
+[Output]
+output_mode = all
+output_name = Fig47_right
+
+[Beam Kinematics]
+beam_energy    = 11.0    # JLab 11 GeV
+electron_angle = 35.0    # from 3Var_theta.f default
+
+[Physics - Form Factor]
+form_factor  = exp_s     # typ=2, as in 3Var_theta.f
+
+[Physics - Meson-Baryon Channel]
+contribution = pion      # FLAG=0
+dissociation = neutral   # dis=1 (p → pi0 + p)
+
+[Physics - Cutoff Parameters]
+lambda       = 1.56      # HSS central value
+lambda_delta = 1.39      # HSS central value
+
+[theta-Scan Settings]
+theta_min = 0.0
+theta_max = 90.0
+nth       = 100           # output points
+n_x_integration = 100    # internal x steps
+
+# --- constrained integration ranges for right panel ---
+x_min_th  = 0.05          # Delta_x lower bound
+x_max_th  = 0.6           # Delta_x upper bound
+k_min_th  = 0.060         # Delta_k lower bound [GeV]
+k_max_th  = 0.250         # Delta_k upper bound [GeV]
+
+[|k| Integration]
+nk = 100                  # integration steps (theta-scan uses k_min_th/k_max_th above)

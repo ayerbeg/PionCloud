@@ -1,0 +1,52 @@
+# CTEQ6/  --  Fortran PDF library
+#
+# Files that belong in this directory:
+#
+#   Cteq6Pdf-2007.f   Fortran source (v6.52, April 2007)
+#   cteq6m.tbl        CTEQ6M  NLO MSbar  iset=1  <-- Fortran default
+#   cteq6d.tbl        CTEQ6D  NLO DIS    iset=2
+#   cteq6l.tbl        CTEQ6L  LO         iset=3
+#   cteq6l1.tbl       CTEQ6L1 LO (alphaS fitted)  iset=4
+#
+# All four files above are present in this distribution.
+#
+# ISET MAPPING (from the source comments in Cteq6Pdf-2007.f)
+# -----------------------------------------------------------
+#  Iset  PDF set   Scheme    alphaS(Mz)   Table file
+#  ----  --------  --------  ----------   -----------
+#   1    CTEQ6M    MSbar     0.118        cteq6m.tbl  <- used by original Fortran
+#   2    CTEQ6D    DIS       0.118        cteq6d.tbl
+#   3    CTEQ6L    LO        0.118        cteq6l.tbl
+#   4    CTEQ6L1   LO        0.130        cteq6l1.tbl
+#
+# The original Fortran (3Var_x.f, f2_pi_sub.f90) calls:
+#   CALL SETCTQ6(1)   ! CTEQ 'MS-bar' SCHEME
+# so iset=1 (CTEQ6M, NLO) is the default in this C++ code too.
+#
+# RUNTIME NOTE
+# ------------
+# SetCtq6 opens the table file by name in the working directory:
+#   Open(IU, File='cteq6m.tbl', Status='OLD', ...)
+# CMake copies the .tbl files to the build directory at configure
+# time, so running the executable from the build directory works.
+# If you run from another directory, symlink or copy the .tbl
+# files next to the executable.
+#
+# BUILD
+# -----
+#   cmake -B build -DUSE_CTEQ6=ON
+#   cmake --build build
+#
+# PRECISION NOTE
+# --------------
+# Cteq6Pdf-2007.f uses "Implicit REAL" (4-byte single precision).
+# The C++ wrapper in include/CTEQ6.hh handles all float<->double
+# casts internally.
+#
+# COMPILER NAME MANGLING
+# ----------------------
+# gfortran appends a trailing underscore: SetCtq6 -> setctq6_
+# This matches the extern "C" declarations in include/CTEQ6.hh.
+# ifort uses the same convention by default.
+# flang: same. If you see linker errors, check with:
+#   nm libPionCloudLib.a | grep -i ctq

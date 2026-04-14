@@ -1,0 +1,47 @@
+# ============================================================
+#  Fig.47 LEFT PANEL
+#  F2^(pi0 p)(theta_p ; Delta_x, Delta_k)
+#  Delta_x = [0, 0.6]
+#  Delta_k = [0, 500] MeV
+#  (neutral exchange, pi contribution, exp_s FF, L=1.56)
+#
+#  NOTE: x_min_th, x_max_th, k_min_th, k_max_th are NOT set here
+#  because the defaults already match the left panel exactly:
+#    x_min_th = 0.0001  (~0)
+#    x_max_th = 0.6
+#    k_min_th = 0.0001  (~0)
+#    k_max_th = 0.5     (= 500 MeV)
+# ============================================================
+
+[Run Control]
+scan_mode   = theta
+
+[Output]
+output_mode = all
+output_name = Fig47_left
+
+[Beam Kinematics]
+beam_energy    = 11.0
+electron_angle = 35.0
+
+[Physics - Form Factor]
+form_factor  = exp_s
+
+[Physics - Meson-Baryon Channel]
+contribution = pion
+dissociation = neutral
+
+[Physics - Cutoff Parameters]
+lambda       = 1.56
+lambda_delta = 1.39
+
+[theta-Scan Settings]
+theta_min = 0.0
+theta_max = 90.0
+nth       = 100
+n_x_integration = 100
+# x_min_th, x_max_th, k_min_th, k_max_th intentionally omitted
+# -- defaults reproduce the left panel exactly
+
+[|k| Integration]
+nk = 100
