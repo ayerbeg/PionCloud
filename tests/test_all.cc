@@ -213,6 +213,57 @@ static void test_GRV()
 }
 
 // ============================================================
+//  3b. Pion-PDF sum rules  (added v1.4 -- these would have caught the
+//      GRV99 bug of v1.3, where int V dx = 2 instead of 1)
+//
+//  Integrals over x in [1e-6, 1) are done in t = ln x with the
+//  composite Simpson rule:  int f(x) dx = int x f(x) dt.
+// ============================================================
+template <class F>
+static double integrate_lnx(F xf, int n = 20000)   // xf(x) returns x*f(x)
+{
+    const double t0 = std::log(1.0e-6), t1 = std::log(1.0 - 1.0e-10);
+    const double h  = (t1 - t0) / n;
+    double s = 0.0;
+    for (int i = 0; i <= n; ++i) s += simpsonWeight(i, n) * xf(std::exp(t0 + i*h));
+    return s * h / 3.0;
+}
+
+static void test_PionPDFSumRules()
+{
+    std::cout << "\n--- Pion PDF sum rules (GRV92, GRS99) ---\n";
+    for (double Q2 : {1.0, 4.0, 10.0}) {
+        std::ostringstream q; q << " (Q2=" << Q2 << ")";
+        // Per-flavour valence of the interface used by the Calculator:
+        // int V dx = 1 for BOTH sets (one valence quark of each flavour).
+        double n92 = integrate_lnx([&](double x){ double v,s; GRV92(x,Q2,v,s); return v; });
+        double n99 = integrate_lnx([&](double x){ double v,s; GRV99(x,Q2,v,s); return v; });
+        near(n92, 1.0, 0.01, "GRV92 per-flavour valence: int V dx = 1" + q.str());
+        near(n99, 1.0, 0.01, "GRV99 per-flavour valence: int V dx = 1" + q.str());
+
+        // GRS99 in the paper's own convention (EPJ C10 (1999) 313):
+        // v = u_v + dbar_v  ->  int v dx = 2;
+        // momentum sum int x (v + 4 qbar + 2 sbar + g) dx = 1.
+        double nv  = integrate_lnx([&](double x){ return GRS99(x,Q2).xv; });
+        double mom = integrate_lnx([&](double x){
+            GRS99Partons f = GRS99(x,Q2);
+            return x * (f.xv + 4.0*f.xqbar + 2.0*f.xsbar + f.xg); });
+        near(nv,  2.0, 0.02, "GRS99 total valence: int v dx = 2" + q.str());
+        near(mom, 1.0, 0.01, "GRS99 momentum sum rule = 1" + q.str());
+    }
+    // F2pi: GRV92 and GRS99 describe the same pion; at x_pi = 0.3, Q2 = 4
+    // they must agree to within tens of percent, not a factor of 2.
+    {
+        double r = F2piGRV99(0.3, 4.0) / F2piGRV(0.3, 4.0);
+        check(r > 0.7 && r < 1.4, "F2pi GRS99/GRV92 at (0.3, 4 GeV2) within [0.7,1.4]",
+              "ratio = " + std::to_string(r));
+    }
+    // strange option only adds a positive term
+    check(F2piGRV(0.1,4.0,true)   > F2piGRV(0.1,4.0),   "GRV92: strange term adds");
+    check(F2piGRV99(0.1,4.0,true) > F2piGRV99(0.1,4.0), "GRS99: strange term adds");
+}
+
+// ============================================================
 //  4. Splitting functions
 // ============================================================
 static void test_SplittingFunctions()
@@ -1051,6 +1102,7 @@ int main()
     test_PhysicsParams();
     test_Kinematics();
     test_GRV();
+    test_PionPDFSumRules();
     test_SplittingFunctions();
     test_InputReader();
     test_Calculator();

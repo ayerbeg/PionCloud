@@ -66,8 +66,9 @@ enum NucleonType {
 //  GRV pion PDF version
 // ----------------------------------------------------------
 enum GRVVersion {
-    GRV_92 = 92,   // GRV92 LO, Z.Phys.C53(1992)651 (default)
-    GRV_99 = 99    // GRV99 LO update (in f2_pi_sub.f90 as subroutine GRV99)
+    GRV_92 = 92,   // GRV92 LO pion, Z.Phys.C53(1992)651 (default, = Fortran)
+    GRV_99 = 99    // GRS99 LO pion, Gluck-Reya-Schienbein EPJ C10(1999)313
+                   // (corrected in v1.4 -- see GRV.hh and CHANGELOG.md)
 };
 
 // ----------------------------------------------------------
@@ -160,7 +161,8 @@ struct RunParams {
 
     // ---- GRV pion PDF version ----
     // GRV_92 (default): GRV92 LO, matches original Fortran 3Var_x.f
-    // GRV_99:           GRV99 LO update from f2_pi_sub.f90
+    // GRV_99:           GRS99 LO (hep-ph/9903288); v1.3 had this set wrong
+    //                   (valence x2, strange sea used as light sea) -- fixed v1.4
     GRVVersion  grv_version = GRV_92;
 
     // ---- kbin precision preset ----
