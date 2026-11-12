@@ -273,11 +273,21 @@ can be merged without name collisions. The prefix is `<channel>_<mode>`:
 | Curve | ROOT object name |
 |---|---|
 | Orange F₂ⁿ(x) | `g_F2neutron` |
-| Purple F₂^(πN)(x) inclusive | `g_piN_kbin` (no angle/k cuts) |
+| Purple F₂^(πN)(x) inclusive | `g_piN_kbin` (`inclusive_mode = true`), × 3/2 to sum both charge states |
 | Black πN with acceptance | `g_piN_kbin` (30°–70°, |k|=[60,250] MeV) |
 | Red ρN | `g_rhoN_kbin` |
 | Green πΔ | `g_piDelta_kbin` |
-| Fig.47 θ distribution | `g_thetascan` |
+| Fig.47 θ distribution | `g_piN_neutral_theta` |
+
+### Validation against the published figures
+
+`docs/validation/` reproduces Figs. 5, 6, 37, 46 and 47 of the TDIS proposal
+PR12-15-006 (and Fig. 2 of Hobbs, arXiv:1411.2216). It contains the curves
+extracted from the proposal PDF, the inputs and the overlay scripts. PionCloud agrees
+with the published curves to about 1% (see the manual, Sec. "Worked examples", and
+`docs/validation/README.md`). Use `electron_angle = 35` to reproduce them. A run gives
+**one charge state**: multiply by 3 (neutral) or 3/2 (charge exchange) for the total
+F₂^(πN).
 
 ---
 

@@ -193,7 +193,7 @@ void OutputWriter::writeASCII(const ScanResults &results) const
           << "\n[CTEQ6 Neutron F2]\n"
           << "  Available = "
 #ifdef HAVE_CTEQ6
-          << "yes (CTEQ6L, charge symmetry, no strange)\n";
+          << "yes (CTEQ6M, iset=1; neutron via charge symmetry, no strange)\n";
 #else
           << "no (rebuild with -DUSE_CTEQ6=ON to enable F2n and ratio)\n";
 #endif
@@ -203,9 +203,11 @@ void OutputWriter::writeASCII(const ScanResults &results) const
 
     // ---- x-scan data file ----
     if (!results.xScan.empty()) {
-        // File name encodes channel and mode
-        std::string pfxAsc = flagName(p_.flag) + "_" + p_.scanMode;
-        std::string fname = base_ + "_" + pfxAsc + ".dat";
+        // Column labels encode channel and mode (plain ASCII, no spaces),
+        // e.g. F2piK_piN_kbin; file name is <base>_xscan.dat as documented
+        // (kbin results are stored in the x-scan table as well).
+        std::string pfxAsc = channelTag(p_.flag, p_.dis) + "_" + p_.scanMode;
+        std::string fname = base_ + "_xscan.dat";
         std::ofstream f(fname);
         if (!f) { std::cerr << "[ASCII] Cannot open " << fname << "\n"; return; }
 
@@ -225,18 +227,21 @@ void OutputWriter::writeASCII(const ScanResults &results) const
             f << "# k=[" << p_.kmin << "," << p_.kmax << "] GeV"
               << "  cosph=[" << p_.cosph_min << "," << p_.cosph_max << "]\n";
         if (hasCTEQ6)
-            f << "# F2N: CTEQ6M " << nucleonLabel << " F2 via charge symmetry\n"
-              << "# ratio: F2pi_" << flagName(p_.flag) << " / F2_" << nucleonLabel << "\n";
+            f << "# F2N: CTEQ6M " << nucleonLabel << " F2"
+              << (p_.nucleon == NUCLEON_PROTON ? "" : " via charge symmetry") << "\n"
+              << "# ratio: F2piK_" << pfxAsc << " / F2_" << nucleonLabel << "\n";
         else
             f << "# F2n/ratio: not available (built without CTEQ6)\n";
         f << "#\n"
-          << std::setw(14) << "x"
+          << std::setw(14) << "#x"
           << std::setw(16) << "Q2_GeV2"
-          << std::setw(22) << ("F2piK_" + pfxAsc)
-          << std::setw(20) << "RunningMoment";
+          << std::setw(22) << (" F2piK_" + pfxAsc)
+          << std::setw(20) << " RunningMoment";
+        // NB: every field must be wider than the 14-character %.8e number,
+        //     otherwise adjacent columns are written without a separator.
         if (hasCTEQ6)
-            f << std::setw(14) << ("F2_" + nucleonLabel)
-              << std::setw(20) << ("ratio_" + pfxAsc);
+            f << std::setw(18) << (" F2_" + nucleonLabel)
+              << std::setw(22) << (" ratio_" + pfxAsc);
         f << "\n"
           << std::scientific << std::setprecision(8);
         for (auto &pt : results.xScan) {
@@ -245,8 +250,8 @@ void OutputWriter::writeASCII(const ScanResults &results) const
               << std::setw(22) << pt.F2piK
               << std::setw(20) << pt.F2piMoment;
             if (hasCTEQ6)
-                f << std::setw(14) << pt.F2n
-                  << std::setw(20) << pt.ratio;
+                f << std::setw(18) << pt.F2n
+                  << std::setw(22) << pt.ratio;
             f << "\n";
         }
         std::cout << "[ASCII] Written " << fname << "\n";
@@ -267,9 +272,9 @@ void OutputWriter::writeASCII(const ScanResults &results) const
           << "# x in [" << p_.xmin_th << "," << p_.xmax_th << "]"
           << "  k in [" << p_.kmin_th << "," << p_.kmax_th << "] GeV\n"
           << "#\n"
-          << std::setw(16) << "theta_h_deg"
-          << std::setw(26) << ("F2piK_" + tpfxAsc)
-          << std::setw(20) << "RunningMoment\n";
+          << std::setw(16) << "#theta_h_deg"
+          << std::setw(26) << (" F2piK_" + tpfxAsc)
+          << std::setw(20) << " RunningMoment" << "\n";
         f << std::scientific << std::setprecision(8);
         for (auto &pt : results.thetaScan) {
             f << std::setw(16) << pt.theta_deg
