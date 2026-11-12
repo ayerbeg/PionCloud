@@ -474,7 +474,7 @@ $\Lambda = 1.48$~GeV & HSS $-1\sigma$ \\
 \toprule
 \textbf{Key} & \textbf{Default} & \textbf{Description} \\
 \midrule
-\inikey{kbin\_method} & \texttt{grid} & \texttt{grid}: Fortran algorithm; \texttt{exact}: analytic region + Gauss--Legendre (recommended, Sec.~\ref{sec:v14}) \\
+\inikey{kbin\_method} & \texttt{exact} & \textbf{NEW in v1.4.} \texttt{exact} (default): analytic region + Gauss--Legendre; \texttt{grid}: ORIGINAL Fortran algorithm (v1.3 results; CLI \texttt{--kbin-grid}) \\
 \inikey{gl\_nodes}    & 16  & Gauss--Legendre nodes per panel (\texttt{exact}) \\
 \inikey{gl\_ypanels}  & 32  & panels in $y$ (\texttt{exact}) \\
 \inikey{splitting\_model} & --- & name of a registered \code{SplittingModel} (\texttt{Models.hh}) \\
@@ -555,7 +555,13 @@ at each output $x$.
 \end{tabular}
 \end{center}
 
-\textbf{Performance note:} \inikey{nkt=50000} matches the Fortran
+\textbf{Integration method (v1.4).}  The kbin scan now uses the
+\emph{exact} method by default (Sec.~\ref{sec:v14}): \inikey{ny},
+\inikey{nkt} and the \inikey{precision} presets act \emph{only} on the
+original Fortran \emph{grid} method, selected with
+\inikey{kbin\_method = grid} or \texttt{--kbin-grid}.
+
+\textbf{Performance note (grid method):} \inikey{nkt=50000} matches the Fortran
 exactly.  In v1.3 a kbin run with \inikey{nx=50}, \inikey{ny=100},
 \inikey{nkt=50000} takes $\approx1$~s on a laptop, so there is little
 reason to lower it.  With \inikey{nkt=5000} the result changes by
@@ -691,13 +697,27 @@ test that fails on the old code.
 \subsection{New features}
 
 \begin{description}
-\item[\inikey{kbin\_method = exact}.] The $|\vec k|$ window and the angular
-  cuts are solved analytically in $u=k_T^2$ (at most two intervals at each
-  $y$) and integrated with Gauss--Legendre.  It reaches 0.002\% in 0.3~s,
-  where the Fortran grid needs $\sim15$~s for 0.25--8\% (errors concentrated
-  near the kinematic end point), and halves the maximum deviation from the
-  published curves.  \textbf{Recommended for new results}; the default
-  stays \texttt{grid} to reproduce the Fortran.
+\item[\inikey{kbin\_method = exact} --- NEW, and the DEFAULT since v1.4.]
+  The $|\vec k|$ window and the angular cuts are solved analytically in
+  $u=k_T^2$ (at most two intervals at each $y$) and integrated with
+  Gauss--Legendre.  It reaches 0.002\% in 0.3~s, where the Fortran grid needs
+  $\sim15$~s for 0.25--8\% (errors concentrated near the kinematic end point),
+  and halves the maximum deviation from the published curves.  Relative to
+  the grid at the Fortran settings, kbin results change by $\le0.3\%$
+  (median), typically 2--6\% near the end of each curve, and up to 35\% in
+  the narrow $|\vec k|=60$--100~MeV bin where the grid is not converged.
+  \textbf{The ORIGINAL Fortran algorithm remains available} and reproduces
+  v1.3 bit for bit:
+  \begin{center}
+  \begin{tabular}{ll}
+  input file & \inikey{kbin\_method = grid} \\
+  command line & \texttt{--kbin-grid} \quad(or \texttt{--kbin-method grid}) \\
+  C / Python & \texttt{pioncloud\_set\_kbin\_method(0)} \\
+  C++ & \code{p.kbin\_method = PionCloud::KBIN\_GRID;}
+  \end{tabular}
+  \end{center}
+  Every kbin run prints the method used and records it in
+  \texttt{<base>\_params.txt} and in the header of \texttt{<base>\_xscan.dat}.
 \item[\inikey{charge\_states = total}.] Sum over charge states (the
   ``fully integrated'' curves); replaces the manual $\times3$ / $\times\tfrac32$.
 \item[\inikey{q2\_fixed}.] Fixed $Q^2$ instead of $Q^2(x)$ at fixed electron angle.
@@ -711,13 +731,35 @@ test that fails on the old code.
   See the header of \texttt{Models.hh} and \texttt{CONTRIBUTING.md}.
 \end{description}
 
+\subsection{Reproducing v1.3 results}
+\label{sec:migration}
+
+\begin{center}
+\begin{tabular}{p{5.2cm}p{9cm}}
+\toprule
+\textbf{If your v1.3 run \dots} & \textbf{add to the v1.4 input file} \\
+\midrule
+used the kbin scan (any) & \inikey{kbin\_method = grid} (or \texttt{--kbin-grid}) \\
+did not set \inikey{form\_factor}/\inikey{lambda} & \inikey{form\_factor = pauli\_villar}, \inikey{lambda = 1.33}
+  (the old default; physically inconsistent, see Sec.~\ref{sec:v14}) \\
+used \inikey{grv\_version = 99} & cannot be reproduced on purpose: v1.3 GRS99 was wrong \\
+used an odd number of steps & cannot be reproduced on purpose: v1.3 was wrong by $\sim0.4\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Everything else (x and theta scans, all explicit settings, even step counts)
+gives identical numbers.
+
 \subsection{Open questions found in v1.4}
 \begin{itemize}
 \item $\langle n\rangle_{\pi\Delta}$: 0.027 vs.\ 0.06 in~\cite{McK16}
-  (factor 2.2), while $\pi N$ agrees.  \picloud{} reproduces the Fortran and
-  the proposal for $\pi\Delta$, so the difference is between the Fortran
-  normalisation and the 2016 paper (isospin factor, coupling, or terms
-  included).
+  (factor 2.2), while $\pi N$ agrees.  \textbf{Resolved as a model
+  difference} and documented in the note
+  \texttt{docs/notes/piDelta\_normalisation.pdf}: the paper's Eq.~(5)
+  (chiral-EFT on-shell form), implemented with the same regulator, gives
+  0.058; the factor splits into isospin bookkeeping ($\times1.5$) and
+  functional form ($\times1.43$), couplings agree to 4\%.  \picloud{} keeps
+  the Fortran (Sullivan/HSS) model of the TDIS proposal.
 \item The $F_2^{p,n}$ reference curves of the proposal are not reproduced by
   any CTEQ6 set (Sec.~\ref{sec:kbin-notes}).
 \end{itemize}
@@ -821,6 +863,7 @@ pioncloud_init_default();                    // default BoNuS config
 double f2pi = pioncloud_eval_f2pi(x, Q2);
 double f2n  = pioncloud_eval_f2n (x, Q2);
 double rat  = pioncloud_eval_ratio(x, Q2);
+pioncloud_set_kbin_method(0);   // v1.4: 0 = original Fortran grid, 1 = exact (default)
 \end{lstlisting}
 
 Python usage via \code{ctypes}:
@@ -974,6 +1017,8 @@ cosph_min = 0.342            # theta_p' < 70 deg (cos 70)
 cosph_max = 0.866            # theta_p' > 30 deg (cos 30)
 ny    = 100
 nkt   = 5000
+kbin_method = grid           # original algorithm, as used for the figures
+                             # (v1.4 default: exact -- see Sec. "Changes in v1.4")
 # violet curve: inclusive_mode = true  and  charge_states = total
 #               (sum of the charge states; v1.3: multiply F2piK by 3)
 \end{lstlisting}
@@ -1010,6 +1055,8 @@ cosph_min = 0.0              # 30-180 deg (cos(phi_k) > 0 always)
 cosph_max = 0.866
 ny    = 100
 nkt   = 5000
+kbin_method = grid           # original algorithm, as used for the figures
+                             # (v1.4 default: exact -- see Sec. "Changes in v1.4")
 # violet curve: inclusive_mode = true, charge_states = total (= x3/2)
 \end{lstlisting}
 
@@ -1043,6 +1090,8 @@ cosph_min = 0.342
 cosph_max = 0.866
 ny    = 100
 nkt   = 5000
+kbin_method = grid           # original algorithm, as used for the figures
+                             # (v1.4 default: exact -- see Sec. "Changes in v1.4")
 \end{lstlisting}
 
 \begin{figure}[htbp]
@@ -1427,6 +1476,8 @@ several threads at once.
 --grv 92|99               Pion PDF: GRV92 or GRS99
 --strange                 Include strange quarks in F2pi
 --quiet / --verbose       Progress output
+--kbin-grid               ORIGINAL Fortran kbin algorithm (default: exact, v1.4)
+--kbin-method exact|grid  same, explicit
 # (--flag 3 = rho-Delta.  --nucleon, --grv, --precision, --inclusive,
 #  --verbose and --x/kmin/max-th were listed in v1.3 but did not work.)
 # Options without a CLI flag (input file only): kbin_method, q2_fixed,
@@ -1490,11 +1541,8 @@ The complete, current list is maintained in \texttt{TODO.md}.
 Main open items:
 
 \begin{enumerate}
-\item \textbf{$\pi\Delta$ normalisation} vs.\ McKenney \textit{et al.}\
-  (factor 2.2 in $\langle n\rangle_{\pi\Delta}$; Sec.~\ref{sec:v14}).
-\item \textbf{Default integration method}: whether to make
-  \inikey{kbin\_method = exact} the default (changes kbin results by
-  typically $<1\%$, more near end points).
+\item \textbf{$\pi\Delta$ charge states}: the meaning of the Fortran
+  factor $\tfrac23$ (note \texttt{docs/notes/piDelta\_normalisation.pdf}).
 \item \textbf{Sum of channels} ($\pi N+\rho N+\pi\Delta$ in one run); the
   sum over charge states exists since v1.4.
 \item \textbf{$|\vec k|$-scan and t-scan modes} (Fig.~45 of~\cite{TDIS15};

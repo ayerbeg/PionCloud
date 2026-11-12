@@ -13,7 +13,11 @@ IN=$WORK/inputs; RUN=$WORK/runs
 mkdir -p "$IN" "$RUN"
 cp -n "$(dirname "$EXE")"/cteq6*.tbl "$RUN"/ 2>/dev/null || true
 
-COMMON="form_factor = exp_s
+# kbin_method = grid: the ORIGINAL Fortran algorithm, with which the published
+# figures were made and the overlays in docs/figures were produced.  The v1.4
+# default is exact (see CHANGELOG.md); tests/validation.cc checks both.
+COMMON="kbin_method = grid
+form_factor = exp_s
 lambda = 1.56
 lambda_delta = 1.39
 beam_energy = 11.0

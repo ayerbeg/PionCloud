@@ -119,9 +119,17 @@ double pioncloud_eval_ratio(double x, double Q2)
     return (f2n > 0.0) ? f2pi / f2n : 0.0;
 }
 
+void pioncloud_set_kbin_method(int method)
+{
+    if (!g_calc) pioncloud_init_default();
+    g_params.kbin_method = (method == 0) ? PionCloud::KBIN_GRID : PionCloud::KBIN_EXACT;
+    delete g_calc;
+    g_calc = new PionCloud::Calculator(g_params);
+}
+
 const char *pioncloud_version(void)
 {
-    return "PionCloud 1.3"
+    return "PionCloud 1.4"
 #ifdef HAVE_CTEQ6
         " +CTEQ6"
 #endif

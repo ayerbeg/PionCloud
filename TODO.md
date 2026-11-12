@@ -34,7 +34,11 @@
   Calculator throws before calling SetCtq6.  197 tests really run.
 [MEDIUM] [done v1.4]  9 CLI OPTIONS IN --help WERE NEVER PARSED (--grv,
   --nucleon, --precision, --inclusive, --verbose, --x/kmin/max-th)
-[HIGH] [open]  pi-DELTA NORMALISATION vs McKenney et al. PRD 93 054011 Table I
+[LOW] [documented v1.4]  pi-DELTA NORMALISATION vs McKenney et al. PRD 93 054011 Table I
+  DECISION: keep the Fortran model; difference documented in
+  docs/notes/piDelta_normalisation.pdf (model difference, not a bug:
+  isospin bookkeeping x1.5 + Sullivan vs chiral-EFT form x1.43).
+  Remaining open point: the exact charge-state meaning of the Fortran 2/3.
   Summed over charge states, exp_s L=1.33: <n>_piN = 0.224 (paper 0.23, OK),
   PV L=0.27: 0.310 (paper 0.31, OK), but <n>_piDelta = 0.027 vs paper 0.06
   (x2.2).  PionCloud = Fortran = PR12-15-006 Fig. 6 for piDelta, so the
@@ -44,13 +48,15 @@
 
 [LOW] [done v1.4]  KBIN: ANALYTIC kT LIMITS + GAUSS QUADRATURE
               -> kbin_method = exact (0.002% in 0.3 s; grid kept as default)
-[LOW] [open]  MAKE kbin_method = exact THE DEFAULT (changes kbin results by
-              typically <1%, up to several % near end points; needs decision)
+[LOW] [done v1.4]  kbin_method = exact IS THE DEFAULT (decision 2026-11-12);
+              original Fortran algorithm: kbin_method = grid / --kbin-grid /
+              pioncloud_set_kbin_method(0)
 [LOW] [done v1.4]  ARCHITECTURE STEP 1: SplittingModel / PionSFModel
               interfaces + ModelRegistry + injection (include/Models.hh)
-[LOW] [open]  ARCHITECTURE STEP 2: Regulator as separate interface; LHAPDF
+[LOW] [on hold]  ARCHITECTURE STEP 2: Regulator as separate interface; LHAPDF
               backend for meson/nucleon PDFs (LHAPDF not installed on the
               laptop); one integration kernel for all scan modes
+              (user, 2026-11-12: wait before LHAPDF / Python bindings)
 
 ## PHYSICS OUTPUT
 # --------------------------------------------------------

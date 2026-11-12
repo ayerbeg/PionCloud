@@ -1,0 +1,193 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[varqu,varl,scaled=0.95]{zi4}
+\usepackage[margin=2.4cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\definecolor{titleblue}{rgb}{0.1,0.2,0.5}
+\hypersetup{colorlinks=true,linkcolor=titleblue,urlcolor=titleblue,citecolor=titleblue,
+  pdftitle={The pi-Delta normalisation in PionCloud}}
+\lstset{basicstyle=\ttfamily\small,columns=fullflexible,keepspaces=true,
+  backgroundcolor=\color[rgb]{0.97,0.97,0.97},frame=single,rulecolor=\color[rgb]{0.8,0.8,0.8}}
+\newcommand{\picloud}{\textsc{PionCloud}}
+\newcommand{\kT}{k_\perp}
+
+\title{\color{titleblue}The $\pi\Delta$ splitting function in \picloud{}:\\
+comparison with McKenney \textit{et al.}\ (2016)}
+\author{PionCloud maintainers (TDIS) --- technical note}
+\date{12 November 2026 \quad (\picloud{} v1.4)}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+For the $\pi N$ channel, \picloud{} reproduces the pion multiplicities of
+McKenney, Sato, Melnitchouk and Ji~\cite{McK16} to 3\%.  For the $\pi\Delta$
+channel it gives $\langle n\rangle_{\pi\Delta}=0.027$ where Ref.~\cite{McK16}
+quotes 0.06 for the same regulator and cut-off, a factor 2.2.  We show that
+this is a difference of \emph{model}, not a bug: implementing Eq.~(5) of
+Ref.~\cite{McK16} with the same regulator reproduces its 0.06, and the factor
+splits into $\times1.5$ from the isospin (charge-state) bookkeeping and
+$\times1.43$ from the functional form of the splitting function (the
+``Sullivan'' $\Delta$-pole form of the original Fortran vs.\ the chiral-EFT
+on-shell form of Ref.~\cite{McK16}).  The couplings agree to 4\%.
+\textbf{Decision:} \picloud{} keeps the Fortran (Hobbs/HSS) $\pi\Delta$ model,
+which is the one used for the TDIS proposal; this note documents the
+difference.
+\end{abstract}
+
+\section{Context}
+
+\picloud{} is a C++ port of the pion-cloud codes of T.~Hobbs and
+W.~Melnitchouk (\texttt{3Var\_x.f}, \texttt{3Var\_theta.f},
+\texttt{f2\_pi\_sub.f90}) used for the TDIS proposal PR12-15-006~\cite{TDIS15}.
+It reproduces the proposal's figures, including the $\pi\Delta$ curves of its
+Figs.~6 and 37, to about 1\%.  As an independent check of the normalisation of
+the splitting functions $f_{MB}(y,\kT)$ (per $d\kT^2$, with $y$ the meson
+light-cone fraction), we computed the average multiplicities
+\begin{equation}
+  \langle n\rangle_{MB}=\int_0^1\!dy\int_0^\infty\! d\kT^2\, f_{MB}(y,\kT),
+  \qquad\text{summed over charge states,}
+\end{equation}
+and compared them with Table~I of Ref.~\cite{McK16}, which lists them for
+several regulators fitted to the E866 $\bar d-\bar u$ data.  All numbers below
+use the $s$-dependent exponential regulator
+$F=\exp[(M^2-s)/\Lambda^2]$ with $s=(\kT^2+m_\pi^2)/y+(\kT^2+M_B^2)/(1-y)$,
+which is Eq.~(12) of Ref.~\cite{McK16} and \texttt{form\_factor = exp\_s} in
+\picloud{} (the same convention).
+
+\section{Results}
+
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+ & \picloud{} & Ref.~\cite{McK16}, Table I & ratio \\
+\midrule
+$\langle n\rangle_{\pi N}$, \texttt{exp\_s}, $\Lambda=1.33$ GeV & 0.224 & 0.23 & 0.97 \\
+$\langle n\rangle_{\pi N}$, Pauli--Villars, $\Lambda=0.27$ GeV & 0.310 & 0.31 & 1.00 \\
+$\langle n\rangle_{\pi\Delta}$, \texttt{exp\_s}, $\Lambda=1.33$ GeV & 0.027 & 0.06 & 0.45 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The $\pi N$ agreement validates the $\pi N$ splitting function, its
+normalisation, the isospin sum (charge exchange $\times2$ + neutral $\times1$)
+and the Pauli--Villars implementation (Eq.~(9) of Ref.~\cite{McK16}).  The
+$\pi\Delta$ value differs by a factor $2.2$.
+
+\section{The two $\pi\Delta$ splitting functions}
+
+\paragraph{\picloud{} / original Fortran} (\texttt{fypiD} in
+\texttt{include/SplittingFunctions.hh}, unchanged from the Fortran).  With
+$\bar y\equiv1-y$ the baryon fraction,
+\begin{equation}
+f^{\rm F}_{\pi\Delta}(y,\kT)=\frac23\,\frac{g^2}{16\pi^2 m_\pi^2}\,\frac{y}{\bar y}\,
+\frac{\big[\kT^2+(M_\Delta-\bar yM)^2\big]\big[\kT^2+(M_\Delta+\bar yM)^2\big]^2}
+     {6M_\Delta^2\,\bar y^3\; y^2\,(s-M^2)^2}\;F^2,
+\qquad \frac{g^2}{4\pi}=0.2237 .
+\label{eq:F}
+\end{equation}
+This is the standard time-ordered (``Sullivan'') form evaluated at the
+$\Delta$ pole, as in Holtmann, Szczurek and Speth~\cite{HSS96} and Melnitchouk,
+Speth and Thomas~\cite{MST99}: at large $\kT$ the numerator grows like $\kT^6$.
+The prefactor $\tfrac23$ is applied in the Fortran for
+\texttt{dis = 0} (``charge exchange''); for \texttt{dis = 1} the coupling is
+set to zero.  The charge-state content of the factor $\tfrac23$ is not
+documented in the Fortran.
+
+\paragraph{McKenney \textit{et al.}~\cite{McK16}, Eqs.~(4)--(7).}  The
+on-shell part of the $p\to\pi^+\Delta^0$ splitting function in chiral
+effective theory,
+\begin{equation}
+f^{\rm (on)}_{\Delta}(y)=C_\Delta\!\int\! d\kT^2\,
+\frac{y\,(\bar M^2-m_\pi^2)}{(1-y)\,D_{\pi\Delta}^2}
+\Big[(\bar M^2-m_\pi^2)(\Delta^2-m_\pi^2)-\big(3(\Delta^2-m_\pi^2)+4MM_\Delta\big)D_{\pi\Delta}\Big]F^2,
+\label{eq:McK}
+\end{equation}
+with $\bar M=M_\Delta+M$, $\Delta=M_\Delta-M$,
+$D_{\pi\Delta}=-[\kT^2-y(1-y)M^2+yM_\Delta^2+(1-y)m_\pi^2]/(1-y)$,
+$C_\Delta=g_{\pi N\Delta}^2/[(4\pi)^2\,18M_\Delta^2]$ and
+$g_{\pi N\Delta}=(3\sqrt2/5)\,g_A/f_\pi\approx11.8$~GeV$^{-1}$.  The charge states
+are related by $2f_{\pi^-\Delta^{++}}=3f_{\pi^0\Delta^+}=6f_{\pi^+\Delta^0}$,
+and $\langle n\rangle_{\pi\Delta}=6\int dy\,f^{\rm (on)}_\Delta$.
+The authors note explicitly that Eq.~(\ref{eq:McK}) ``differs from the
+`Sullivan' form often used in the literature'', which has a higher power of
+$\kT$ and neglects end-point contributions.  Their $\delta$-function and
+end-point terms (at $y=0$ and $y=1$) do not enter $\langle n\rangle$ as
+defined in their Eq.~(7).
+
+\section{Decomposition of the factor 2.2}
+
+We implemented Eq.~(\ref{eq:McK}) with the same regulator (program
+\texttt{docs/notes/piDelta\_check.cc}).  At $\Lambda=1.33$~GeV:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+ & $\langle n\rangle_{\pi\Delta}$ & step \\
+\midrule
+\picloud{} = Fortran, Eq.~(\ref{eq:F}) with the factor $\tfrac23$ & 0.027 & \\
+same functional form, all charge states with total weight 1 ($\times\tfrac32$) & 0.040 & $\times1.50$ \\
+Eq.~(\ref{eq:McK}) $\times6$, $g_{\pi N\Delta}=11.56$ GeV$^{-1}$ (from $g_A, f_\pi$) & 0.058 & $\times1.43$ \\
+Eq.~(\ref{eq:McK}) $\times6$, $g_{\pi N\Delta}=11.8$ GeV$^{-1}$ (as quoted) & 0.060 & \\
+Ref.~\cite{McK16}, Table I & 0.06 & \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+\item Our implementation of Eq.~(\ref{eq:McK}) reproduces the published 0.06,
+  so the comparison is under control.
+\item \textbf{Couplings} are equivalent: $g^2/4\pi=0.2237/m_\pi^2=11.5$~GeV$^{-2}$
+  (Fortran) vs.\ $11.8^2/4\pi=11.1$~GeV$^{-2}$ (Ref.~\cite{McK16}), a 4\%
+  difference.
+\item \textbf{Isospin bookkeeping} ($\times1.5$): if the Fortran factor
+  $\tfrac23$ is read as a partial charge-state sum relative to a total weight
+  of 1, the total is $\tfrac32$ of the \picloud{} value.  This step is an
+  interpretation, since the meaning of $\tfrac23$ is not documented.
+\item \textbf{Functional form} ($\times1.43$): the chiral-EFT on-shell form
+  gives more strength than the Sullivan form at the same $\Lambda$; it is also
+  slightly softer: $\langle y\rangle=0.286$, $\langle\kT^2\rangle=0.117$~GeV$^2$
+  vs.\ $0.316$ and $0.136$~GeV$^2$ for Eq.~(\ref{eq:F}).
+\item At the HSS value $\Lambda_{\pi\Delta}=1.39$~GeV (the \picloud{} default):
+  0.034 (\picloud{}), 0.050 ($\times\tfrac32$), 0.071 (Eq.~\ref{eq:McK}).
+\end{itemize}
+
+\section{Conclusion and recommendation}
+
+The difference is a difference between two models of the $\pi\Delta$
+fluctuation, not an error in \picloud{}.  The cut-off values of
+Ref.~\cite{McK16} were fitted \emph{with their} functional form and should not
+be combined with Eq.~(\ref{eq:F}); conversely, the HSS values
+($\Lambda_{\pi\Delta}=1.39\pm0.07$~GeV) belong to the Sullivan form used in the
+TDIS proposal.  \picloud{} keeps the Fortran model.  A user who wants the
+chiral-EFT form can implement Eq.~(\ref{eq:McK}) as a \texttt{SplittingModel}
+(\texttt{include/Models.hh}); \texttt{piDelta\_check.cc} contains a ready
+implementation of the integrand.  Open point: the exact charge-state meaning of
+the Fortran factor $\tfrac23$ (relevant for the absolute $\pi\Delta$
+normalisation in the tagged structure functions).
+
+\paragraph{Reproducing the numbers.}
+\begin{lstlisting}
+g++ -std=c++17 -O2 -Iinclude docs/notes/piDelta_check.cc -o piDelta_check
+./piDelta_check        # header-only, no CTEQ6/ROOT needed, ~1 min
+\end{lstlisting}
+
+\begin{thebibliography}{9}
+\bibitem{McK16} J.~R.~McKenney, N.~Sato, W.~Melnitchouk and C.-R.~Ji,
+  Phys.\ Rev.\ D \textbf{93}, 054011 (2016), arXiv:1512.04459.
+\bibitem{HSS96} H.~Holtmann, A.~Szczurek and J.~Speth,
+  Nucl.\ Phys.\ A \textbf{596}, 631 (1996).
+\bibitem{MST99} W.~Melnitchouk, J.~Speth and A.~W.~Thomas,
+  Phys.\ Rev.\ D \textbf{59}, 014033 (1999).
+\bibitem{TDIS15} A.~Camsonne \textit{et al.}, JLab proposal PR12-15-006 (2015),
+  approved as E12-15-006.
+\bibitem{Hobbs15} T.~J.~Hobbs, Few-Body Syst.\ \textbf{56}, 363 (2015),
+  arXiv:1411.2216.
+\end{thebibliography}
+\end{document}

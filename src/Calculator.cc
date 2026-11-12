@@ -590,8 +590,14 @@ void Calculator::runKBinScan(ScanResults &out) const
 
     double F2pi0 = 0.0;
 
-    if (p_.verbose)
+    if (p_.verbose) {
+        std::cout << "  [kbin-scan] integration method: "
+                  << (p_.kbin_method == KBIN_EXACT
+                      ? "exact region + Gauss-Legendre (NEW in v1.4, default);"
+                        " for the original Fortran algorithm use kbin_method = grid / --kbin-grid\n"
+                      : "grid (ORIGINAL Fortran f2_pi_sub algorithm)\n");
         std::cout << std::scientific << std::setprecision(5);
+    }
 
     for (int ix = 0; ix <= p_.nx; ++ix) {
         const double x  = p_.xmin + ix * xstep;

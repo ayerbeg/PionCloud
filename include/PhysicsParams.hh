@@ -94,9 +94,11 @@ enum PrecisionPreset {
 //  kbin integration method (v1.4)
 // ----------------------------------------------------------
 enum KBinMethod {
-    KBIN_GRID  = 0,   // f2_pi_sub.f90: uniform kT grid on [0,10] GeV, ny x nkT
-                      // Simpson, cuts applied by rejecting grid points (default)
-    KBIN_EXACT = 1    // exact |k|/angle region in u = kT^2 + Gauss-Legendre
+    KBIN_GRID  = 0,   // ORIGINAL f2_pi_sub.f90 algorithm: uniform kT grid on
+                      // [0,10] GeV, ny x nkT Simpson, cuts applied by rejecting
+                      // grid points.  Select with kbin_method = grid / --kbin-grid.
+    KBIN_EXACT = 1    // NEW in v1.4, DEFAULT: exact |k|/angle region in
+                      // u = kT^2 + Gauss-Legendre
 };
 enum OutputMode {
     OUT_NONE  = 0,
@@ -230,13 +232,21 @@ struct RunParams {
     // PRECISION_PUBLICATION:      ny=100, nkT=50000 (matches Fortran)
     PrecisionPreset precision = PRECISION_CUSTOM;
 
-    // ---- kbin integration method (v1.4) ----
-    // KBIN_GRID (default): the Fortran algorithm, reproduces it exactly.
-    // KBIN_EXACT: solves the |k| window and angular cuts analytically in
-    //   u = kT^2 at each y (at most two intervals) and integrates with
-    //   Gauss-Legendre: no rejected points, no step-function integrand.
+    // ---- kbin integration method (NEW in v1.4) ----
+    // KBIN_EXACT (DEFAULT since v1.4): solves the |k| window and angular
+    //   cuts analytically in u = kT^2 at each y (at most two intervals) and
+    //   integrates with Gauss-Legendre: no rejected points, no step-function
+    //   integrand.  0.002% accuracy in ~0.3 s for a 50-point scan.
     //   gl_nodes nodes per panel; y in [x, ymax] split into gl_ypanels.
-    KBinMethod kbin_method = KBIN_GRID;
+    // KBIN_GRID: the ORIGINAL Fortran algorithm (f2_pi_sub.f90), kept to
+    //   reproduce Fortran / v1.3 results exactly.  Select it with
+    //   kbin_method = grid  (input file),  --kbin-grid  (command line),
+    //   pioncloud_set_kbin_method(0)  (C interface).
+    //   ny / nkT / precision presets apply ONLY to this method.
+    // Typical difference exact vs grid (Fortran settings ny=100, nkT=5000):
+    //   < 1% in the bulk, several % close to the kinematic end point where
+    //   the grid result is least accurate.
+    KBinMethod kbin_method = KBIN_EXACT;
     int        gl_nodes    = 16;
     int        gl_ypanels  = 32;
 

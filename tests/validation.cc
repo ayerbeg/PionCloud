@@ -84,7 +84,7 @@ static void compare(const std::string &label, const std::string &ref,
         for (double e : dev) worst = std::max(worst, std::abs(e));
         ok = (med > medLo && med < medHi && worst < maxDev);
     }
-    std::cout << (ok ? "  [PASS] " : "  [FAIL] ") << std::left << std::setw(22) << label
+    std::cout << (ok ? "  [PASS] " : "  [FAIL] ") << std::left << std::setw(30) << label
               << std::right << std::fixed << std::setprecision(2)
               << "  median " << std::setw(6) << 100*med << "%  max|dev| " << std::setw(5) << 100*worst << "%  ("
               << dev.size() << " pts)\n";
@@ -152,8 +152,13 @@ int main()
         {"Fig.37 rhoN",      "fig37_main_red_dash",  FLAG_RHO,      DIS_CHARGE_EXCHANGE, 0.250, 0.400, 0.342, 0.30, false, NUCLEON_NEUTRON},
         {"Fig.37 piDelta",   "fig37_main_green_dash",FLAG_PI_DELTA, DIS_CHARGE_EXCHANGE, 0.250, 0.400, 0.342, 0.30, false, NUCLEON_NEUTRON},
     };
+    // v1.4: each kbin figure is checked with BOTH integration methods --
+    // the original Fortran grid (with which the figures were made) and the
+    // new default exact method.
+    for (KBinMethod meth : {KBIN_GRID, KBIN_EXACT})
     for (const K &k : ks) {
         RunParams p = base();
+        p.kbin_method = meth;
         p.flag = k.fl; p.dis = k.dis; p.nucleon = k.nuc;
         p.xmin = 0.05; p.xmax = k.xmax; p.nx = 50; p.ny = 100; p.nkT = 5000;
         if (k.total) { p.inclusive_mode = true; p.total_charge_states = true; }
@@ -161,8 +166,9 @@ int main()
         ScanResults r; Calculator(p).runKBinScan(r);
         std::vector<double> xs, ys;
         for (auto &pt : r.xScan) { xs.push_back(pt.x); ys.push_back(pt.F2piK); }
-        if (k.total) compare(k.label, k.ref, xs, ys, ILo, IHi, IMax);
-        else         compare(k.label, k.ref, xs, ys, TLo, THi, TMax);
+        const std::string lab = std::string(k.label) + (meth == KBIN_GRID ? " [grid]" : " [exact]");
+        if (k.total) compare(lab, k.ref, xs, ys, ILo, IHi, IMax);
+        else         compare(lab, k.ref, xs, ys, TLo, THi, TMax);
     }
 
     std::cout << "  Results: " << g_pass << " passed, " << g_fail << " failed\n";

@@ -291,14 +291,22 @@ can be merged without name collisions. The prefix is `<channel>_<mode>`:
 - **Test suite:** in v1.3 ctest "passed" after a Fortran `STOP` (exit 0) had aborted the
   suite at about test 80. Now 212 unit tests and 17 checks against the published TDIS
   curves really run.
+- **New default kbin integration (NEW feature): `kbin_method = exact`.** The analytic cut
+  region is integrated with Gauss–Legendre: 0.002% in 0.3 s. It changes kbin results by
+  ≤ 0.3% (median) and more near the curve ends, where the old grid was inaccurate.
+  - **The original Fortran algorithm (= v1.3 results):** `kbin_method = grid`,
+    `--kbin-grid`, or `pioncloud_set_kbin_method(0)`.
 - **New keys:**
-  - `kbin_method = exact`: analytic cut region with Gauss–Legendre; 0.002% in 0.3 s,
-    recommended.
   - `charge_states = total`, `q2_fixed`, `pion_strange`, `contribution = rho_delta`.
   - `splitting_model` / `pion_sf_model`: user models, see `include/Models.hh`.
 - **CLI:** the advertised options `--grv`, `--nucleon`, `--precision`, `--inclusive`,
   `--verbose`, `--xmin-th`, … now work.
 - **Contributing:** read `CONTRIBUTING.md` first (numerical-change policy).
+- **Documents:**
+  - `docs/PionCloud_v1.4_changes.pdf`: every change, with reason, evidence, effect and how to
+    get the old behaviour.
+  - `docs/notes/piDelta_normalisation.pdf`: the πΔ comparison with McKenney et al. A model
+    difference, kept as is.
 
 ### Validation against the published figures
 

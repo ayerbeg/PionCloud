@@ -44,7 +44,7 @@ using namespace PionCloud;
 static void printVersion()
 {
     std::cout <<
-"PionCloud v1.3 -- Pion Cloud Model Structure Function Calculator\n"
+"PionCloud v1.4 -- Pion Cloud Model Structure Function Calculator\n"
 "  C++ port of 3Var_x.f, 3Var_theta.f, f2_pi_sub.f90\n"
 "  Build date: " __DATE__ " " __TIME__ "\n"
 "  Features compiled in: "
@@ -119,7 +119,9 @@ static void printUsage(const char *prog)
 "  --nkt  <n>           kT integration steps (kbin; 1000=fast, 50000=exact)\n"
 "  --cosph-min <val>    cos(phi_k) lower bound, default 0.342 = cos(70 deg)\n"
 "  --cosph-max <val>    cos(phi_k) upper bound, default 0.866 = cos(30 deg)\n"
-"  --precision fast|normal|publication  Set ny+nkt preset\n"
+"  --kbin-method exact|grid  kbin integration (default exact, NEW in v1.4)\n"
+"  --kbin-grid          Use the ORIGINAL Fortran grid algorithm (= v1.3 results)\n"
+"  --precision fast|normal|publication  Set ny+nkt preset (grid method only)\n"
 "  --inclusive          Remove all kinematic cuts (fully inclusive)\n\n";
 }
 
@@ -166,6 +168,7 @@ struct CliOverrides {
     bool  has_precision= false; PrecisionPreset precision = PRECISION_CUSTOM;
     bool  has_inclusive= false;
     bool  has_strange  = false;
+    bool  has_kbin_method = false; KBinMethod kbin_method = KBIN_EXACT;
 };
 
 static void applyOverrides(RunParams &p, const CliOverrides &o)
@@ -210,6 +213,7 @@ static void applyOverrides(RunParams &p, const CliOverrides &o)
     if (o.has_precision)  p.precision      = o.precision;
     if (o.has_inclusive)  p.inclusive_mode = true;
     if (o.has_strange)    p.pion_strange   = true;
+    if (o.has_kbin_method) p.kbin_method   = o.kbin_method;
 }
 
 // ----------------------------------------------------------
@@ -280,6 +284,13 @@ int main(int argc, char *argv[])
         else if (eq("--quiet"))    { cli.has_verbose  = true; cli.verbose   = false; }
         else if (eq("--inclusive")){ cli.has_inclusive= true; }
         else if (eq("--strange"))  { cli.has_strange  = true; }
+        else if (eq("--kbin-grid")){ cli.has_kbin_method = true; cli.kbin_method = KBIN_GRID; }
+        else if (eq("--kbin-method")) {
+            std::string v = nxt(); cli.has_kbin_method = true;
+            if      (v == "exact") cli.kbin_method = KBIN_EXACT;
+            else if (v == "grid")  cli.kbin_method = KBIN_GRID;
+            else throw std::runtime_error("Unknown --kbin-method: " + v + " (exact|grid)");
+        }
         else if (eq("--nucleon")) {
             std::string v = nxt(); cli.has_nucleon = true;
             if      (v == "n" || v == "neutron") cli.nucleon = NUCLEON_NEUTRON;
@@ -412,6 +423,11 @@ int main(int argc, char *argv[])
 "  theta k range  : [" << params.kmin_th << ", " << params.kmax_th << "] GeV\n"
 "  |k| range      : [" << params.kmin << ", " << params.kmax
                        << "] GeV  nk=" << params.nk << "\n"
+"  kbin method    : " << (params.kbin_method == KBIN_EXACT
+                          ? "exact (NEW in v1.4, default; original Fortran algorithm: --kbin-grid)"
+                          : "grid (ORIGINAL Fortran f2_pi_sub algorithm)") << "\n"
+"  pion PDF       : " << (params.grv_version == GRV_99 ? "GRS99" : "GRV92")
+                       << (params.pion_strange ? " + strange" : "") << "\n"
 "  kbin settings  : ny=" << params.ny
                        << "  nkT=" << params.nkT
                        << "  cosph=[" << params.cosph_min

@@ -167,7 +167,13 @@ void OutputWriter::writeASCII(const ScanResults &results) const
           << "  dissociation    = " << disName(p_.dis)   << "\n"
           << "  form_factor     = " << ffName(p_.typ)    << "\n"
           << "  lambda          = " << p_.L   << " GeV  (pi/rho-N vertex)\n"
-          << "  lambda_delta    = " << p_.Ld  << " GeV  (Delta vertex)\n\n"
+          << "  lambda_delta    = " << p_.Ld  << " GeV  (Delta vertex)\n"
+          << "  grv_version     = " << (p_.grv_version == GRV_99 ? "99 (GRS99)" : "92 (GRV92)") << "\n"
+          << "  pion_strange    = " << (p_.pion_strange ? "true" : "false") << "\n"
+          << "  charge_states   = " << (p_.total_charge_states ? "total" : "single") << "\n"
+          << "  q2_fixed        = " << p_.q2_fixed << "  (<= 0: Q2 from E, theta_e)\n"
+          << "  kbin_method     = " << (p_.kbin_method == KBIN_EXACT
+                                        ? "exact (v1.4 default)" : "grid (original Fortran)") << "\n\n"
 
           << "[x-Scan Settings]\n"
           << "  x_min              = " << p_.xmin    << "\n"
@@ -228,7 +234,9 @@ void OutputWriter::writeASCII(const ScanResults &results) const
           << "  dis=" << disName(p_.dis) << "\n";
         if (p_.scanMode == "kbin")
             f << "# k=[" << p_.kmin << "," << p_.kmax << "] GeV"
-              << "  cosph=[" << p_.cosph_min << "," << p_.cosph_max << "]\n";
+              << "  cosph=[" << p_.cosph_min << "," << p_.cosph_max << "]"
+              << "  method=" << (p_.kbin_method == KBIN_EXACT
+                                 ? "exact (v1.4 default)" : "grid (original Fortran)") << "\n";
         if (hasCTEQ6)
             f << "# F2N: CTEQ6M " << nucleonLabel << " F2"
               << (p_.nucleon == NUCLEON_PROTON ? "" : " via charge symmetry") << "\n"

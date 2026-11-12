@@ -118,6 +118,14 @@ double pioncloud_eval_f2n(double x, double Q2);
 double pioncloud_eval_ratio(double x, double Q2);
 
 /* ----------------------------------------------------------------
+ * pioncloud_set_kbin_method   (v1.4)
+ * 1 = exact region + Gauss-Legendre (DEFAULT since v1.4, new),
+ * 0 = ORIGINAL Fortran f2_pi_sub grid algorithm (reproduces v1.3).
+ * Re-initialises the internal calculator with the current parameters.
+ * ---------------------------------------------------------------- */
+void pioncloud_set_kbin_method(int method);
+
+/* ----------------------------------------------------------------
  * pioncloud_version
  * Returns a static string describing the build configuration.
  * ---------------------------------------------------------------- */

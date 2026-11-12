@@ -86,6 +86,7 @@ static void test_PhysicsParams()
     near(p.Ld,      1.39, 1e-12, "default Ld = 1.39 GeV (HSS exp_s)");
     check(p.typ  == FF_EXP_S,            "default form factor = exp_s");
     check(p.pion_strange == false,       "default pion_strange = false (Fortran)");
+    check(p.kbin_method == KBIN_EXACT,   "default kbin_method = exact (v1.4; grid = original Fortran)");
     check(p.flag == FLAG_PION,           "default contribution = pion");
     check(p.dis  == DIS_CHARGE_EXCHANGE, "default dis = charge exchange");
     check(p.scanMode == "all",           "default scanMode = all");
@@ -946,9 +947,13 @@ static void test_Regression()
 
     const double rel_tol = 0.05;  // 5% relative tolerance
 
+    // v1.4: the references are output of the ORIGINAL Fortran algorithm, so
+    // they are checked with kbin_method = grid; the same references are also
+    // checked with the new default (exact) method below.
     auto runBin = [&](const char* label,
                       double kmin, double kmax,
-                      const Ref* ref, int nRef)
+                      const Ref* ref, int nRef,
+                      KBinMethod method = KBIN_GRID)
     {
         std::cout << "  -- " << label << " --\n";
 
@@ -972,6 +977,7 @@ static void test_Regression()
         p.outputMode = OUT_NONE;
         p.scanMode   = "kbin";
         p.verbose    = false;
+        p.kbin_method = method;
 
         ScanResults res;
         Calculator(p).runKBinScan(res);
@@ -1027,6 +1033,15 @@ static void test_Regression()
                           0.060, 0.250,
                           kbin_60_250, sizeof(kbin_60_250)/sizeof(kbin_60_250[0]));
     check(okKbin, "regression kbin [60,250] MeV: within 5% of Fortran f2pi_sub");
+
+    // Same Fortran references with the v1.4 default (exact) method
+    check(runBin("EXACT k=[200,300]", 0.200, 0.300, bin2, sizeof(bin2)/sizeof(bin2[0]), KBIN_EXACT),
+          "regression bin t=2 with kbin_method=exact: within 5% of Fortran");
+    check(runBin("EXACT k=[300,400]", 0.300, 0.400, bin3, sizeof(bin3)/sizeof(bin3[0]), KBIN_EXACT),
+          "regression bin t=3 with kbin_method=exact: within 5% of Fortran");
+    check(runBin("EXACT k=[60,250]", 0.060, 0.250, kbin_60_250,
+                 sizeof(kbin_60_250)/sizeof(kbin_60_250[0]), KBIN_EXACT),
+          "regression kbin [60,250] with kbin_method=exact: within 5% of Fortran");
 
     std::cout << "  NOTE: bins t=0 [60,100] and t=1 [100,200] MeV not tested\n"
               << "        (too few Fortran reference points at this x-spacing).\n";

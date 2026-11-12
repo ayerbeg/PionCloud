@@ -1,0 +1,297 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[varqu,varl,scaled=0.95]{zi4}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,array,longtable}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{enumitem}
+\definecolor{titleblue}{rgb}{0.1,0.2,0.5}
+\definecolor{changed}{rgb}{0.70,0.15,0.10}
+\definecolor{same}{rgb}{0.10,0.45,0.15}
+\hypersetup{colorlinks=true,linkcolor=titleblue,urlcolor=titleblue,citecolor=titleblue,
+  pdftitle={PionCloud v1.4 -- changes and improvements}}
+\lstset{basicstyle=\ttfamily\small,columns=fullflexible,keepspaces=true,
+  backgroundcolor=\color[rgb]{0.97,0.97,0.97},frame=single,rulecolor=\color[rgb]{0.8,0.8,0.8},
+  commentstyle=\color[rgb]{0.4,0.5,0.4},morecomment=[l]{\#}}
+\newcommand{\picloud}{PionCloud}
+\newcommand{\key}[1]{\texttt{\textbf{#1}}}
+\newcommand{\CH}{\textcolor{changed}{\textbf{yes}}}
+\newcommand{\NO}{\textcolor{same}{no}}
+\setlist{itemsep=2pt,topsep=3pt}
+
+\title{\color{titleblue}\picloud{} v1.4 --- changes and improvements}
+\author{PionCloud maintainers (TDIS)}
+\date{12 November 2026 \\[2pt] \small branch \texttt{v1.4-improvements} of
+\url{https://github.com/ayerbeg/PionCloud}}
+
+\begin{document}
+\maketitle
+
+\noindent This document lists \emph{every} change made in v1.4 with respect to
+v1.3 (commit \texttt{3254880} plus the manual update merged into
+\texttt{main}).  For each change it states \textbf{what} changed, \textbf{why},
+the \textbf{evidence}, whether \textbf{numbers change} and by how much, and how
+to \textbf{get the old behaviour}.  The same information, in short form, is in
+\texttt{CHANGELOG.md}; the user manual (\texttt{docs/PionCloud\_manual.pdf},
+section ``Changes in v1.4'') is updated accordingly.
+
+\section{Summary}
+
+{\small
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\begin{longtable}{L{4.7cm}L{2.4cm}L{4.3cm}L{4.6cm}}
+\toprule
+\textbf{Change} & \textbf{numbers change?} & \textbf{size} & \textbf{old behaviour} \\
+\midrule\endhead
+GRS99 pion PDFs fixed (\key{grv\_version = 99}) & \CH{} & $F_2^{(\pi N)}$ was $\approx2\times$ too large & not reproducible (was wrong) \\
+Default model \texttt{exp\_s}, $\Lambda=1.56$ GeV (was Pauli--Villars, 1.33 GeV) & \CH{} (only runs relying on defaults) & old default $1.6$--$1.9\times$ larger & \key{form\_factor = pauli\_villar}, \key{lambda = 1.33} \\
+kbin: \textbf{exact} integration, \textbf{new default} & \CH{} (kbin scans) & median $\le0.3\%$; 2--6\% near curve ends; up to 35\% in the 60--100 MeV bin & \key{kbin\_method = grid}, \texttt{--kbin-grid}, \texttt{pioncloud\_set\_kbin\_method(0)} \\
+Odd numbers of integration steps & \CH{} (odd $n$ only) & was $\sim0.4\%$ wrong & not reproducible (was wrong) \\
+$\Delta$ channels + \key{dissociation = neutral} rejected & \NO{} & was a silent $F_2=0$ & --- \\
+$\rho\Delta$ channel selectable & \NO{} (new) & 4--13\% of $\pi\Delta$ & --- \\
+\key{charge\_states = total} & \NO{} (new, opt-in) & & default \texttt{single} \\
+\key{q2\_fixed} & \NO{} (new, opt-in) & & default 0 = $Q^2(x)$ \\
+\key{pion\_strange} & \NO{} (new, opt-in) & & default \texttt{false} \\
+Pluggable models (\texttt{Models.hh}) & \NO{} & bit-identical & --- \\
+Command-line options that did not work & \NO{} & 9 options repaired & --- \\
+Test suite runs completely & \NO{} & 80 $\to$ 216 tests actually run & --- \\
+Validation test vs.\ published figures & \NO{} & 28 checks & --- \\
+Code documentation, \texttt{CONTRIBUTING.md} & \NO{} & & --- \\
+$\pi\Delta$ normalisation note & \NO{} (documented) & model difference, factor 2.2 & --- \\
+\bottomrule
+\end{longtable}}
+
+\noindent\textbf{Rule followed for every change:} a change either reproduces
+all 23 validation runs (inputs of the TDIS figures) \emph{bit for bit}, or it
+changes numbers on purpose, with a reference, a measured effect and a test that
+fails on the old code.
+
+\section{Decisions taken (C.~Ayerbe, 12 Nov 2026)}
+\begin{enumerate}
+\item The new exact kbin integration becomes the \textbf{default}; it is
+  marked as a new feature everywhere, and the original Fortran algorithm stays
+  available behind an explicit switch (Sec.~\ref{sec:exact}).
+\item The $\pi\Delta$ normalisation is \textbf{kept} as in the Fortran; the
+  difference with McKenney \textit{et al.}\ is documented in a separate note
+  (Sec.~\ref{sec:pidelta}).
+\item The documentation update of the manual (figures, validation) is merged
+  into \texttt{main}; all code changes are on the branch
+  \texttt{v1.4-improvements}.
+\item LHAPDF backend and Python bindings: on hold.
+\end{enumerate}
+
+\section{Bug fixes that change numbers}
+
+\subsection{GRS99 pion PDFs (\key{grv\_version = 99})}
+\textbf{What.} \texttt{include/GRV.hh}: the 1999 set (Gl\"uck, Reya,
+Schienbein, EPJ C10 (1999) 313, hep-ph/9903288, Appendix A) is implemented as
+published: total valence, light sea, strange sea, gluon.  The per-flavour
+interface used by the calculation has the same meaning as for GRV92.
+
+\textbf{Why.} The v1.3 routine (translated from \texttt{f2\_pi\_sub.f90},
+where its call was commented out and never used) had three errors:
+(1) GRS99 define $v^\pi=u_v^\pi+\bar d_v^\pi$ (both valence quarks,
+$\int v\,dx=2$), but it was used as one flavour in
+$F_2^\pi=\tfrac59(xV+2xS)$, doubling the valence part;
+(2) the coefficients used as ``light sea'' are those of the \emph{strange}
+sea (their Eqs.~A.7--A.8); (3) $N=1.212+0.498s\,\mathbf{+}\,0.009s^2$ had the
+wrong sign.
+
+\textbf{Evidence.} From the code's own formulas: GRV92 $\int V dx=0.99$,
+v1.3 GRV99 $\int V dx=1.99$.  After the fix GRS99 satisfies its sum rules:
+$\int v\,dx=2.00$ and the momentum sum $\int x(v+4\bar q+2\bar s+g)dx=1.000\pm0.005$
+for $Q^2=1$--100 GeV$^2$ (with a per-flavour $v$ it would be $\approx1.4$).
+New unit tests check this; they fail on the v1.3 code.
+
+\textbf{Effect.} Only with \key{grv\_version = 99}: $F_2^{(\pi N)}$ was
+$+107\%$ too large on the Fig.~37 configuration; now GRS99 differs from GRV92
+by $+5$ to $+17\%$ (a genuine PDF-set difference).  Earlier GRV99 results
+(e.g.\ the 2020 \texttt{GRV91vsGRV99} comparisons) must be redone.
+
+\subsection{Default form factor and cut-off}
+\textbf{What.} Defaults are now \key{form\_factor = exp\_s},
+\key{lambda = 1.56}, \key{lambda\_delta = 1.39} (HSS central values).
+
+\textbf{Why.} v1.3 defaulted to Pauli--Villars with $\Lambda=1.33$ GeV.  In
+McKenney \textit{et al.}\ (PRD 93, 054011, Table I) 1.33 GeV is the fit of
+the $s$-dependent \emph{exponential}; the Pauli--Villars fit is 0.27 GeV.  The
+pairing matches no fit; \key{lambda\_delta = 1.39} was already the HSS
+\texttt{exp\_s} value; the C interface already defaulted to
+\texttt{exp\_s}/1.56; and HSS \texttt{exp\_s} is the model of the TDIS
+proposal figures.  A cut-off belongs to its regulator.
+
+\textbf{Effect.} Only runs that did not set \key{form\_factor}/\key{lambda}:
+the old default gave $F_2^{(\pi N)}$ 1.6--1.9$\times$ the HSS model.  A
+warning is now printed when $\Lambda$ is far outside the published range of
+the chosen regulator.
+
+\subsection{Odd numbers of integration steps}
+Simpson's rule needs an even number of intervals; v1.3 accepted odd values
+silently ($-0.4\%$ for \key{nk = 201}).  Now odd $n$ uses a Simpson 3/8 tail
+(exact for cubics).  Even $n$: unchanged, bit for bit.
+
+\section{The new kbin integration (default)}
+\label{sec:exact}
+
+\textbf{What.} With $u=k_T^2$, $A=2M(1-y)$, $c=y(2-y)M^2$, the kinematics of
+\texttt{f2\_pi\_sub.f90} give $|\vec k|^2=u+(u+c)^2/A^2$ and
+$\cos\phi_k=(u+c)/(A|\vec k|)$.  The $|\vec k|$ window and both angular cuts
+become quadratic inequalities in $u$; at fixed $y$ the allowed region is at
+most two intervals, and nothing contributes above
+$y_{\max}(k_{\max})$.  The region is integrated with Gauss--Legendre
+(\texttt{include/Quadrature.hh}, \texttt{Calculator::kbinF2Exact}).
+
+\textbf{Why.} The original algorithm puts $k_T$ on a uniform grid over
+$[0,10]$~GeV and rejects points outside the cuts: the integrand becomes a step
+function, $>96\%$ of the points are wasted for $|\vec k|<0.4$~GeV, and the
+error is concentrated near the kinematic end point.
+
+\textbf{Evidence} (deviation from the exact method at high resolution, points
+within $\times1000$ of the maximum):
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+configuration & grid $100\times5000$ (Fortran) & grid $400\times200\,000$ ($\sim15$ s) & exact (0.3 s) \\
+\midrule
+Fig.~5, $|\vec k|=60$--100 MeV & up to 100\% & 7.8\% & 0.0006\% \\
+Fig.~6, $\pi N$ & 13.5\% & 0.78\% & 0.002\% \\
+Fig.~37, $\pi N$ & 5.0\% & 0.25\% & 0.002\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+Against the published TDIS curves, the maximum deviation halves (Fig.~6:
+6--7\% $\to$ 3.5\%; Fig.~37: $\sim2.5\%\to$ 1--1.6\%).  Tests: Gauss--Legendre
+exactness, the analytic region against a brute-force cut test on 9\,600
+random points, exact vs.\ converged grid ($<0.5\%$), and the Fortran reference
+values with both methods.
+
+\textbf{Effect of the new default} (17 kbin validation runs, exact vs.\ grid
+at the Fortran settings): median $\le0.3\%$ per curve; typically 2--6\% near
+the end of each curve; up to 35\% for the narrow 60--100~MeV bin, where the
+grid is not converged.  x and theta scans are not affected.
+
+\textbf{To use the ORIGINAL Fortran algorithm} (reproduces v1.3 bit for bit):
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+input file & \key{kbin\_method = grid} \\
+command line & \texttt{--kbin-grid} \quad or \quad \texttt{--kbin-method grid} \\
+C / Python (ctypes) & \texttt{pioncloud\_set\_kbin\_method(0);} \\
+C++ & \texttt{params.kbin\_method = PionCloud::KBIN\_GRID;} \\
+\bottomrule
+\end{tabular}
+\end{center}
+The method in use is printed by every kbin run and written to
+\texttt{<base>\_params.txt} and the header of \texttt{<base>\_xscan.dat}.
+\key{ny}, \key{nkt} and \key{precision} act only on the grid method; the exact
+method uses \key{gl\_nodes} (16) and \key{gl\_ypanels} (32).
+
+\section{Other fixes and new features (no change of default numbers)}
+\begin{description}
+\item[Test suite.] With CTEQ6 the tests ran in a directory without the table;
+  the Fortran \texttt{STOP} ended the suite with exit status 0 after $\sim80$
+  tests and \texttt{ctest} reported ``Passed''.  Now the tests run where the
+  tables are, \texttt{ctest} requires the summary line ``0 failed'', and the
+  Calculator throws a C++ exception (instead of letting the Fortran stop the
+  host program) if the table is missing.  216 unit tests run and pass.
+\item[Validation test.] \texttt{PionCloudValidation}: 28 checks against the
+  curves of PR12-15-006 Figs.~5, 6, 37, 46, 47 (kbin figures with both
+  methods).  Shifting $\Lambda$ by $-1\sigma$ makes most checks fail.
+\item[Command line.] \texttt{--grv}, \texttt{--nucleon},
+  \texttt{--precision}, \texttt{--inclusive}, \texttt{--verbose},
+  \texttt{--xmin-th}, \texttt{--xmax-th}, \texttt{--kmin-th},
+  \texttt{--kmax-th} were listed by \texttt{--help} but exited with ``Unknown
+  option''; they work now.  New: \texttt{--quiet}, \texttt{--strange},
+  \texttt{--kbin-grid}, \texttt{--kbin-method}.
+\item[$\Delta$ + neutral.] \key{pi\_delta}/\key{rho\_delta} with
+  \key{dissociation = neutral} returned $F_2=0$ silently (zero coupling in the
+  Fortran); now rejected with an explanation.
+\item[$\rho\Delta$.] \key{contribution = rho\_delta}: the Fortran $\rho\Delta$
+  function was ported but unreachable.  Not validated against a published
+  tagged curve.
+\item[\key{charge\_states = total}.] Sum over charge states for $\pi N$,
+  $\rho N$ ($\times3$ neutral, $\times\tfrac32$ charge exchange): the
+  ``fully integrated'' curves of the figures (previously scaled by hand).
+\item[\key{q2\_fixed}.] Fixed $Q^2$ at every $x$ instead of $Q^2(x)$ at fixed
+  electron angle.
+\item[\key{pion\_strange}.] Adds $\tfrac29x\bar s$ to $F_2^\pi$ (off by default,
+  as in the Fortran).
+\item[Pluggable models.] \texttt{include/Models.hh}: interfaces
+  \texttt{SplittingModel} (f$(y,k_T)$) and \texttt{PionSFModel}
+  ($F_2^M(x,Q^2)$).  A new splitting function (chiral EFT, kaon cloud, \dots) or
+  meson PDF is one class, injected into the Calculator or registered by name
+  (\key{splitting\_model}, \key{pion\_sf\_model}), without editing the
+  integration code.  Built-ins are bit-identical to v1.3.
+\item[Output.] The x-scan file is \texttt{<base>\_xscan.dat} (v1.3 wrote
+  \texttt{<base>\_pi-N (flag=0)\_kbin.dat}), columns are separated, labels
+  correct; the parameter file records all v1.4 options.
+\item[Documentation.] Physics block comments with sources in the headers
+  (normalisation, conventions, couplings, isospin, ``how to add a channel'',
+  ``how to modify'');
+  \texttt{CONTRIBUTING.md}; \texttt{CHANGELOG.md}; manual updated; the
+  CTEQ6 \texttt{xfx} comment corrected ($f$, not $xf$).
+\end{description}
+
+\section{Verification of \picloud{} v1.4}
+\begin{enumerate}
+\item \textbf{Published figures}: PR12-15-006 Figs.~5, 6, 37, 46, 47 reproduced
+  to $\approx1\%$ (median), curves extracted exactly from the vector graphics
+  (automatic test).
+\item \textbf{Original Fortran}: \texttt{3Var\_theta.f}, \texttt{3Var\_x.f}
+  agree to 0.07--0.16\% on the same grid once the Fortran end-point Simpson
+  weight is aligned (which also explains why the published curves lie
+  $\sim1\%$ above \picloud{}).
+\item \textbf{Independent publication}: $\langle n\rangle_{\pi N}=0.224$ /
+  $0.310$ vs.\ 0.23 / 0.31 in McKenney \textit{et al.}\ Table I.
+\item \textbf{Sum rules} for the pion PDFs.
+\item \textbf{Bit-for-bit regression}: every change that should not move
+  numbers reproduces all 23 validation runs exactly.
+\end{enumerate}
+
+\section{$\pi\Delta$ normalisation}
+\label{sec:pidelta}
+$\langle n\rangle_{\pi\Delta}=0.027$ vs.\ 0.06 in McKenney \textit{et al.}\ for
+the same regulator.  Implementing their Eq.~(5) with the same regulator gives
+0.058, so their number is reproduced; the factor 2.2 is $\times1.5$ isospin
+bookkeeping (interpretation of the Fortran factor $\tfrac23$) times
+$\times1.43$ functional form (Sullivan $\Delta$-pole form of the Fortran/HSS
+vs.\ chiral-EFT on-shell form); couplings agree to 4\%.  It is a model
+difference; \picloud{} keeps the Fortran model.  Full note:
+\texttt{docs/notes/piDelta\_normalisation.pdf} (reproducer
+\texttt{docs/notes/piDelta\_check.cc}).
+
+\section{Migration: reproducing v1.3 results}
+\begin{lstlisting}
+# add to a v1.4 input file to reproduce a v1.3 run
+kbin_method = grid          # original Fortran kbin algorithm
+form_factor = pauli_villar  # ONLY if the v1.3 run relied on the default model
+lambda      = 1.33          #   (physically inconsistent pairing, see Sec. 3.2)
+\end{lstlisting}
+Not reproducible on purpose: \key{grv\_version = 99} and odd step counts
+(both were wrong).  Everything else gives identical numbers.
+
+\section{Open items}
+\begin{itemize}
+\item Charge-state meaning of the Fortran $\pi\Delta$ factor $\tfrac23$.
+\item $F_2^{p,n}$ reference curves of the proposal not reproduced by any CTEQ6
+  set (3--7\% offset; affects only those reference curves and ratios).
+\item Sum over channels in one run; $|\vec k|$-scan and $t$-scan modes.
+\item On hold: LHAPDF backend, Python bindings.
+\item CTEQ6 thread safety (Fortran \texttt{COMMON} blocks).
+\end{itemize}
+
+\section*{Commits (branch \texttt{v1.4-improvements})}
+\begin{tabular}{ll}
+\texttt{92dbe76} & GRS99 fix and sum-rule tests \\
+\texttt{fe23d7f} & defaults, $\Delta$/neutral, odd $n$, CLI options, ctest false pass \\
+\texttt{26ebc7f} & pluggable models, physics documentation in the code \\
+\texttt{03c1fb0} & exact kbin integration, \key{q2\_fixed}, \key{charge\_states}, validation test \\
+\texttt{a55957a} & manual and README for v1.4 \\
+(this commit) & exact integration as default + switches, $\pi\Delta$ note, this document
+\end{tabular}
+
+\end{document}

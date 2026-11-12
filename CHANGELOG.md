@@ -297,3 +297,61 @@ Measured: medians +0.3% to +1.7%, max ≤ 6.9%, totals −0.1%.
 **Why.** It protects the agreement with the published physics against future changes; it runs
 in 2 s. Shown to work: with Λ = 1.48 GeV (HSS −1σ), 15 of 17 checks fail. The two that pass
 are πΔ, which does not use `lambda`.
+
+### `kbin_method = exact` is now the DEFAULT; the original algorithm is selected with a flag
+
+**Decision** (C. Ayerbe, 2026-11-12). Make the new integration the default, mark it clearly as
+a new feature, and keep the original Fortran algorithm available behind an explicit switch.
+
+**How to get the ORIGINAL Fortran (`f2_pi_sub.f90`) algorithm, i.e. v1.3 results:**
+
+| interface | switch |
+|-----------|--------|
+| input file | `kbin_method = grid` |
+| command line | `--kbin-grid` (or `--kbin-method grid`) |
+| C / Python (ctypes) | `pioncloud_set_kbin_method(0)` (new function) |
+| C++ | `params.kbin_method = PionCloud::KBIN_GRID;` |
+
+**Where it is visible.**
+- Every kbin run prints the method in the run summary ("kbin method: exact (NEW in v1.4, …)")
+  and at the start of the scan.
+- The method is also written into `<base>_params.txt` and the header of `<base>_xscan.dat`.
+
+**Effect on results** (the 17 kbin validation runs, exact vs grid at the Fortran settings
+ny = 100, nkT = 5000):
+- median change per curve ≤ 0.3%;
+- bulk (curve within ×100 of its maximum) typically 2–6%, near the end of the bulk;
+- up to 35% for the narrow |k| = 60–100 MeV bin, where the grid result is not converged (see the
+  convergence table above: up to 100% off at the Fortran settings).
+- x- and θ-scans are not affected.
+- With `kbin_method = grid`, all 23 validation runs are bit-identical to v1.3.
+
+**Also affected.**
+- `Calculator::eval()` and the C interface now use exact by default.
+- `precision` presets and `ny`/`nkT` act only on the grid method. The exact method uses
+  `gl_nodes` (16) and `gl_ypanels` (32).
+
+**Tests.**
+- The Fortran regression tests use `kbin_method = grid` explicitly, since their references are
+  Fortran output. The same references are also checked with exact; both pass within 5%.
+- `PionCloudValidation` checks every kbin figure with both methods: 28 checks. Exact: medians
+  +0.3–1.7%, maxima ≤ 3.6%. Grid: maxima ≤ 6.9%.
+- `docs/validation/make_runs.sh` sets `kbin_method = grid` explicitly, so the overlays in
+  `docs/figures` stay those of the original algorithm.
+
+### πΔ normalisation vs McKenney et al. (documented, not changed)
+
+**Decision.** Keep the Fortran πΔ model and document the difference:
+`docs/notes/piDelta_normalisation.pdf`, reproducible with `docs/notes/piDelta_check.cc`.
+
+**Summary.** At `exp_s` with Λ = 1.33 GeV:
+- PionCloud gives ⟨n⟩_πΔ = 0.027; McKenney et al. (PRD 93 054011, Table I) give 0.06.
+- The paper's Eq. (5), implemented here with the same regulator, gives 0.058. The paper's
+  number is therefore reproduced, and the difference is a difference of **model**, not a bug.
+
+The factor 2.2 decomposes into:
+- ×1.5 from isospin bookkeeping. This is the interpretation that the Fortran factor 2/3 is a
+  partial charge-state sum; its exact meaning is undocumented.
+- ×1.43 from the functional form: Fortran/HSS "Sullivan" Δ-pole form (∝ k_T⁶) vs the paper's
+  chiral-EFT on-shell form (∝ k_⊥²).
+- The couplings agree within 4%.
