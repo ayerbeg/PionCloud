@@ -237,6 +237,9 @@ void InputReader::parseLine(const std::string &rawLine,
         std::string vl = toLower(val);
         p.pion_strange = (vl == "true" || vl == "1" || vl == "yes");
     }
+    // [user models registered in ModelRegistry]  (v1.4, see Models.hh)
+    else if (key == "splitting_model")  p.splitting_model = val;
+    else if (key == "pion_sf_model")    p.pion_sf_model   = val;
     // [kbin precision preset]
     else if (key == "precision") {
         std::string vl = toLower(val);
@@ -347,7 +350,8 @@ std::vector<ValidationError> InputReader::validate(const RunParams &p)
         err("form_factor", "form_factor must be in [0,6]");
     if ((int)p.flag < 0 || (int)p.flag > 3)
         err("contribution", "contribution flag must be 0 (pion), 1 (rho), 2 (pi_delta) or 3 (rho_delta)");
-    if ((p.flag == FLAG_PI_DELTA || p.flag == FLAG_RHO_DELTA) && p.dis == DIS_NEUTRAL)
+    if (p.splitting_model.empty() &&
+        (p.flag == FLAG_PI_DELTA || p.flag == FLAG_RHO_DELTA) && p.dis == DIS_NEUTRAL)
         err("dissociation", "pi_delta / rho_delta are implemented only for "
             "dissociation = charge_exchange (sum of charge states); neutral would give F2 = 0");
     if ((int)p.dis < 0 || (int)p.dis > 1)

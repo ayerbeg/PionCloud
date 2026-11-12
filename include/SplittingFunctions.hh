@@ -3,16 +3,66 @@
 //  SplittingFunctions.hh
 //  Pion Cloud Model -- meson-baryon splitting functions
 //
-//  Direct C++ translations of the Fortran functions:
-//    fypiN    -- pi-N splitting function
-//    f_rhoN   -- rho-N splitting function
-//    f_RhoDel -- rho-Delta splitting function
-//    fypiD    -- pi-Delta splitting function
+//  Direct C++ translations of the Fortran functions of T. Hobbs
+//  (3Var_x.f, 3Var_theta.f, f2_pi_sub.f90):
+//    fypiN    -- pi-N      (N -> pi N),     cut-off L
+//    f_rhoN   -- rho-N     (N -> rho N),    cut-off L
+//    fypiD    -- pi-Delta  (N -> pi Delta), cut-off Ld
+//    f_RhoDel -- rho-Delta (N -> rho Delta),cut-off Ld
+//
+//  WHAT THEY ARE
+//  f_MB(y, kT) is the light-cone (IMF / time-ordered PT) probability
+//  density for the nucleon to be found as meson M + baryon B, with the
+//  meson carrying light-cone momentum fraction y and transverse momentum
+//  kT.  Normalisation:
+//      <n>_MB = int_0^1 dy int_0^inf d(kT^2) f_MB(y, kT)
+//  i.e. the kT measure is d(kT^2) = 2 kT dkT (this is why the kbin scan
+//  integrates 2*kT*f).  The Sullivan contribution to F2 is
+//      F2^(MB)(x) = int_x^1 dy int d(kT^2) f_MB(y,kT) F2^M(x/y, Q2).
+//  References: Holtmann, Szczurek, Speth NPA 596 (1996) 631;
+//  Melnitchouk, Speth, Thomas PRD 59 (1999) 014033; Hobbs, Londergan,
+//  Melnitchouk PRD 89 (2014) 074008; McKenney et al. PRD 93 (2016) 054011.
+//
+//  VERIFIED (v1.4, analyses/code_review/multiplicity): summed over charge
+//  states, exp_s Lambda=1.33 gives <n>_piN = 0.224 and Pauli-Villars
+//  Lambda=0.27 gives 0.310, vs 0.23 and 0.31 in McKenney et al. Table I.
+//  OPEN: <n>_piDelta = 0.027 vs their 0.06 (factor ~2.2) -- see TODO.md.
+//
+//  VARIABLES
+//    S    : invariant mass^2 of the MB state,
+//           S = (kT^2 + m_M^2)/y + (kT^2 + m_B^2)/(1-y)
+//    t    : meson virtuality, t = -(kT^2 + y^2 mN^2)/(1-y)   (pi-N)
+//  FORM FACTORS (formFactor below; L = Lambda):
+//    exp_s : exp[(mN^2 - S)/L^2]   (HSS / PR12-15-006 Eq. 14 convention;
+//            HSS 1996 use exp[(M^2-S)/2L^2], i.e. their L is smaller by sqrt2)
+//    exp_t : exp[(t - m_M^2)/L^2]
+//    pauli_villar : sqrt(1 - (t-m_M^2)^2/(t-L^2)^2)  = McKenney Eq. (9)
+//    others: see formFactor().
+//  COUPLINGS (values as in the Fortran):
+//    g_piNN^2/4pi = 14.40 ; g_rhoNN^2/4pi = 0.55 with kappa = f/g = 6.1 ;
+//    pi-N-Delta: 0.2237 (x 4pi, with an explicit 1/m_pi^2) ;
+//    rho-N-Delta: 20.448 (x 4pi, with an explicit 1/m_rho^2).
+//  ISOSPIN (argument dis):
+//    pi-N, rho-N : charge_exchange (n -> M^- p, p -> M^+ n) factor 2,
+//                  neutral (N -> M^0 N) factor 1; sum over states = 3.
+//    pi-Delta, rho-Delta : charge_exchange = Fortran sum over charge
+//                  states (factor 2/3); neutral -> coupling 0 (rejected by
+//                  Calculator/InputReader since v1.4).
+//
+//  HOW TO ADD A CHANNEL
+//    1. write   inline double f_XY(double y, double kT, double L,
+//                                  FormFactorType typ, DisChannel dis)
+//       here, returning f per d(kT^2) as above;
+//    2. add a ContributionFlag value in PhysicsParams.hh;
+//    3. add one case to Calculator::splitting() (Calculator.cc), plus the
+//       names in InputReader.cc / OutputWriter.cc / main.cc;
+//    4. check <n> against a published value and add a unit test.
+//  (Library users can instead inject a model at run time, see Models.hh.)
 //
 //  All functions are stateless and thread-safe.
 //  Arguments:
-//    y   -- IMF momentum fraction carried by the meson
-//    kT  -- transverse momentum [GeV]
+//    y   -- light-cone momentum fraction carried by the meson
+//    kT  -- meson transverse momentum [GeV]
 //    L   -- form-factor cut-off Lambda [GeV]
 //    typ -- FormFactorType enum
 //    dis -- DisChannel enum

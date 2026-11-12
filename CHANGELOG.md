@@ -167,3 +167,56 @@ regex no longer matches.
 
 `CTEQ6::xfx()` returns f(x, Q), not x·f. `Ctq6Pdf` "returns the parton distribution". The
 F₂ formulas were already correct (they multiply by x); only the comment was wrong.
+
+### Pluggable models (`include/Models.hh`), for theorists' new models
+
+**What.**
+- New interfaces `SplittingModel` (f(y, k_T)) and `PionSFModel` (F₂^M(x, Q²)).
+- Built-ins `BuiltinSplitting` (the Fortran ports, selected by `contribution`) and
+  `BuiltinPionSF` (GRV92/GRS99).
+- A `ModelRegistry` that selects models by name. Input keys: `splitting_model`,
+  `pion_sf_model`.
+- A second `Calculator` constructor that injects user models.
+
+**Why.**
+- The physics factorises as (splitting function) × (meson structure function) over a
+  kinematic region.
+- In v1.3 the first two were hard-wired with `switch` statements in four places. A new
+  model therefore meant editing the integration loops.
+- Now a theorist adds a model as one class, with no change to PionCloud's sources, and all
+  scans, outputs and the C interface use it.
+- Examples in the header of `Models.hh`; tests in `test_Models`. The tests check that an
+  injected 2× model gives exactly 2× the result, that selection by name works, and that
+  unknown names are rejected.
+
+**Numbers.** Bit-identical (23/23). No measurable speed change.
+
+### Code documentation
+
+**What.** Physics block comments added:
+- `SplittingFunctions.hh`: definition and normalisation of f_MB (⟨n⟩ = ∫dy ∫dk_T² f),
+  variables, form-factor conventions (`exp_s` vs the HSS 2Λ² convention), couplings, isospin
+  meaning of `dis` per channel, and "how to add a channel".
+- `Kinematics.hh`: one angle, three names (θ_h = θ_p′ = φ_k); the y = z̃ formula with its
+  source (Hobbs 2015, Eq. 5); the Q² formula.
+- `Calculator.hh`: "how to modify"; which `RunParams` fields each scan reads.
+- `GRV.hh`: valence/sea normalisation per set.
+- New `CONTRIBUTING.md`: workflow, numerical-change policy, tests, adding physics.
+
+**Verification of the documented normalisation** (independent publication). Summed over
+charge states, PionCloud gives:
+- `exp_s`, Λ = 1.33 GeV: ⟨n⟩_πN = **0.224**;
+- Pauli–Villars, Λ = 0.27 GeV: ⟨n⟩_πN = **0.310**.
+
+McKenney et al., PRD 93 054011, Table I, give 0.23 and 0.31.
+
+**Open finding (not changed).** ⟨n⟩_πΔ = 0.027 at `exp_s` 1.33 GeV, against 0.06 in the same
+table: a factor ≈ 2.2. PionCloud's πΔ reproduces Hobbs' Fortran and PR12-15-006 Fig. 6 to 1%,
+so the difference lies between the Fortran πΔ and the 2016 paper. Candidates:
+- the isospin factor 2/3;
+- the coupling normalisation 0.2237;
+- off-shell / δ-function terms counted in the paper.
+
+Needs a term-by-term comparison with Eq. (5) of the paper (TODO).
+
+**Numbers.** Comments only: bit-identical.

@@ -34,11 +34,21 @@
   Calculator throws before calling SetCtq6.  197 tests really run.
 [MEDIUM] [done v1.4]  9 CLI OPTIONS IN --help WERE NEVER PARSED (--grv,
   --nucleon, --precision, --inclusive, --verbose, --x/kmin/max-th)
+[HIGH] [open]  pi-DELTA NORMALISATION vs McKenney et al. PRD 93 054011 Table I
+  Summed over charge states, exp_s L=1.33: <n>_piN = 0.224 (paper 0.23, OK),
+  PV L=0.27: 0.310 (paper 0.31, OK), but <n>_piDelta = 0.027 vs paper 0.06
+  (x2.2).  PionCloud = Fortran = PR12-15-006 Fig. 6 for piDelta, so the
+  difference is Fortran vs 2016 paper: check isospin factor 2/3, coupling
+  0.2237, and whether the paper includes off-shell/delta-function terms
+  (their Eq. 5).  analyses/code_review/multiplicity/nmult.cc reproduces this.
+
 [LOW] [open]  KBIN: ANALYTIC kT LIMITS + GAUSS QUADRATURE INSTEAD OF
               kT in [0,10] GeV WITH continue-CUTS (accuracy, speed)
-[LOW] [open]  ARCHITECTURE: SplittingFunction / Regulator / MesonSF /
-              Region interfaces + registry; LHAPDF backend; one kernel
-              for all scan modes (see review Part 5)
+[LOW] [done v1.4]  ARCHITECTURE STEP 1: SplittingModel / PionSFModel
+              interfaces + ModelRegistry + injection (include/Models.hh)
+[LOW] [open]  ARCHITECTURE STEP 2: Regulator as separate interface; LHAPDF
+              backend for meson/nucleon PDFs (LHAPDF not installed on the
+              laptop); one integration kernel for all scan modes
 
 ## PHYSICS OUTPUT
 # --------------------------------------------------------

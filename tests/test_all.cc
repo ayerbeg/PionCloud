@@ -18,6 +18,7 @@
 #include "InputReader.hh"
 #include "Calculator.hh"
 #include "Results.hh"
+#include "Models.hh"
 
 #ifdef HAVE_CTEQ6
 #include "CTEQ6.hh"
@@ -1139,6 +1140,58 @@ static void test_CTEQ6()
 #endif
 }
 
+
+// ============================================================
+//  Models.hh (v1.4): user models are injected / registered
+// ============================================================
+namespace {
+struct ScaledSplitting : SplittingModel {          // c * built-in
+    BuiltinSplitting base; double c;
+    ScaledSplitting(const RunParams &p, double c_) : base(p), c(c_) {}
+    double f(double y, double kT) const override { return c * base.f(y, kT); }
+    std::string name() const override { return "scaled"; }
+};
+struct FlatPionSF : PionSFModel {                  // F2pi = 0.1 everywhere
+    double F2(double, double) const override { return 0.1; }
+    std::string name() const override { return "flat"; }
+};
+}
+static void test_Models()
+{
+    std::cout << "\n--- Models (injection / registry) ---\n";
+    RunParams p;
+    p.scanMode = "kbin"; p.outputMode = OUT_NONE; p.verbose = false;
+    p.xmin = 0.05; p.xmax = 0.15; p.nx = 2; p.ny = 20; p.nkT = 400;
+    p.kmin = 0.06; p.kmax = 0.25;
+
+    ScanResults r0; Calculator(p).runKBinScan(r0);
+    check(Calculator(p).splittingModel().name() == "pion", "default splitting model = built-in pion");
+    check(Calculator(p).pionSFModel().name() == "GRV92",   "default pion SF = GRV92");
+
+    // injected model: 2 x built-in must give exactly 2 x result
+    ScanResults r2; Calculator(p, std::make_shared<ScaledSplitting>(p, 2.0)).runKBinScan(r2);
+    bool exact = true;
+    for (size_t i = 0; i < r0.xScan.size(); ++i)
+        if (r2.xScan[i].F2piK != 2.0 * r0.xScan[i].F2piK) exact = false;
+    check(exact, "injected SplittingModel (2 x built-in) gives exactly 2 x F2");
+
+    // registry by name, selected through RunParams like an input file would
+    ModelRegistry::addSplitting("test_scaled3", [](const RunParams &q){
+        return std::make_shared<ScaledSplitting>(q, 3.0); });
+    ModelRegistry::addPionSF("test_flat", [](const RunParams &){
+        return std::make_shared<FlatPionSF>(); });
+    RunParams q = p; q.splitting_model = "test_scaled3";
+    ScanResults r3; Calculator(q).runKBinScan(r3);
+    check(std::abs(r3.xScan[0].F2piK / r0.xScan[0].F2piK - 3.0) < 1e-12,
+          "registered splitting model selected by name");
+    RunParams s = p; s.pion_sf_model = "test_flat";
+    check(Calculator(s).pionSFModel().name() == "flat", "registered pion SF selected by name");
+    RunParams bad = p; bad.splitting_model = "does_not_exist";
+    bool threw = false;
+    try { Calculator c(bad); } catch (const std::invalid_argument &) { threw = true; }
+    check(threw, "unknown model name is rejected");
+}
+
 // ============================================================
 //  main
 // ============================================================
@@ -1156,6 +1209,7 @@ int main()
     test_InputReader();
     test_Calculator();
     test_KBinScan();
+    test_Models();
     test_Regression();
     test_OutputASCII();
     test_CTEQ6();

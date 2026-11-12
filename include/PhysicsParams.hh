@@ -193,6 +193,13 @@ struct RunParams {
     // GRV92 has an SU(3)-symmetric sea (sbar = S); GRS99 has its own sbar.
     bool pion_strange = false;
 
+    // ---- user models (v1.4, see Models.hh) ----
+    // Empty (default): built-in model selected by flag / grv_version.
+    // Otherwise the name of a model registered with ModelRegistry
+    // (input keys splitting_model / pion_sf_model).
+    std::string splitting_model = "";
+    std::string pion_sf_model   = "";
+
     // ---- kbin precision preset ----
     // PRECISION_CUSTOM (default): use ny/nkT fields directly
     // PRECISION_FAST:             ny=20,  nkT=500

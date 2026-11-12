@@ -6,6 +6,17 @@
 //  Provides the coordinate transforms between (k, theta_h)
 //  and (y, kT) used in both 3Var_x and 3Var_theta modes,
 //  as well as Q2 from beam kinematics.
+//
+//  ONE ANGLE, THREE NAMES: the lab polar angle of the recoil nucleon
+//  with respect to the virtual-photon direction is called
+//    theta_h  in this code (x- and theta-scans, 3Var_*.f),
+//    theta_p' in the TDIS proposal and Hobbs, arXiv:1411.2216,
+//    phi_k    in f2_pi_sub.f90 and the kbin scan (cosph = cos phi_k).
+//  |k| is the recoil-nucleon 3-momentum in the target rest frame.
+//
+//  Conventions: masses/momenta in GeV, angles in RADIANS inside the
+//  functions (degrees only at input/output), y = light-cone momentum
+//  fraction of the MESON.
 // ============================================================
 
 #include "PhysicsParams.hh"
@@ -14,7 +25,10 @@
 namespace PionCloud {
 
 // ----------------------------------------------------------
-//  Q2 from inclusive electron kinematics
+//  Q2 from inclusive electron kinematics at FIXED electron angle
+//  (as in 3Var_*.f):  Q2 = 2 M x E (1 - 1/(1 + (2E/(x M)) sin^2 theta_e))
+//  i.e. Q2 = 4 E E' sin^2(theta_e/2) with E' fixed by x and theta_e.
+//  Note: at small x, Q2 ~ 2 M E x and depends only weakly on theta_e.
 //  E     -- beam energy [GeV]
 //  x     -- Bjorken-x
 //  theta -- electron scattering angle [deg]
@@ -31,6 +45,10 @@ inline double calcQ2(double E, double x, double theta_deg)
 
 // ----------------------------------------------------------
 //  (k, theta_h) --> (y, kT) coordinate transform
+//  Recoil nucleon with lab 3-momentum |k| at angle theta (target at
+//  rest).  The meson then has energy k0 = M - sqrt(M^2 + k^2) and its
+//  light-cone fraction is (Hobbs, Few-Body Syst. 56 (2015) 363, Eq. 5):
+//      y = z~ = (k0 + |k| cos theta) / M ,     kT = |k| sin theta .
 //  k      -- hadron momentum magnitude [GeV]
 //  theta  -- hadron production angle   [rad]
 //  y      -- IMF momentum fraction     [out]
@@ -46,7 +64,9 @@ inline void kThetaToYkT(double k, double theta,
 
 // ----------------------------------------------------------
 //  Phase-space factor (Jacobian) for the (k, theta_h) -> (y,kT)
-//  transformation, as written in the Fortran programs.
+//  transformation, as written in the Fortran programs
+//  (Hobbs, Few-Body Syst. 56 (2015) 363, Eq. 8, with phi_k there
+//  = atan(|k|/M), not the recoil angle of f2_pi_sub):
 //  rho_PS = (2/mN) * k^2 * sin(theta) * (1 - sin(phi_k)*cos(theta))
 //  where phi_k = atan(k/mN)
 // ----------------------------------------------------------

@@ -24,16 +24,61 @@
 //  selects which ones run.  "all" runs all three.
 //
 //  The class has no I/O; output is handled by OutputWriter.
+//
+//  ------------------------------------------------------------
+//  HOW TO MODIFY  (v1.4)
+//  ------------------------------------------------------------
+//  Every scan evaluates the same physics,
+//      dF2 = f_MB(y, kT) * F2^M(x/y, Q2)   [* Jacobian for (|k|,theta)],
+//  integrated over a different region / set of variables.
+//
+//  * New splitting function or meson structure function:
+//      do NOT edit the scans.  Implement SplittingModel / PionSFModel
+//      (Models.hh) and inject it (2nd constructor) or register it by
+//      name (input keys splitting_model / pion_sf_model).
+//      All scans, output and the C interface then use it.
+//  * New built-in channel: SplittingFunctions.hh ("HOW TO ADD A CHANNEL").
+//  * Different Q2 prescription: calcQ2() (Kinematics.hh) is called in
+//      runXScan, runThetaScan, runKBinScan and eval; or pass Q2 to eval().
+//  * New cut / acceptance in the kbin scan: the `continue` tests on
+//      kmag and cosph in runKBinScan() and eval() (keep them identical).
+//  * Integration grids: all loops use composite Simpson via
+//      simpsonWeight() (Kinematics.hh), valid for any number of steps.
+//  * Which RunParams fields each scan reads:
+//      runXScan     : xmin,xmax,nx | thmin_deg,thmax_deg,nth_int | kmin,kmax,nk
+//      runThetaScan : thmin_deg,thmax_deg,nth (OUTPUT grid) |
+//                     xmin_th,xmax_th,nx_int | kmin_th,kmax_th,nk
+//      runKBinScan  : xmin,xmax,nx | ny | nkT (kT in [0,10] GeV) |
+//                     kmin,kmax (|k| window) | cosph_min,cosph_max
+//      all          : E, theta_e (-> Q2), model fields (flag, L/Ld, typ, dis,
+//                     grv_version, pion_strange, *_model)
+//    NOTE: theta_min/max are an OUTPUT range in the theta scan but an
+//    INTEGRATION range in the x scan; kmin/kmax are the x-scan |k| range
+//    and the kbin window; nk is shared by the x and theta scans.
+//  * After any change: ctest, then docs/validation/run_compare.sh and
+//    compare with the published curves (see CONTRIBUTING.md).
 // ============================================================
 
 #include "PhysicsParams.hh"
 #include "Results.hh"
+#include "Models.hh"
+
+#include <memory>
 
 namespace PionCloud {
 
 class Calculator {
 public:
     explicit Calculator(const RunParams &p);
+
+    // Inject user models (v1.4).  A null pointer means "use the model
+    // selected by p" (built-in or registered by name, see Models.hh).
+    Calculator(const RunParams &p,
+               std::shared_ptr<const SplittingModel> split,
+               std::shared_ptr<const PionSFModel>    pionSF = nullptr);
+
+    const SplittingModel &splittingModel() const { return *split_; }
+    const PionSFModel    &pionSFModel()    const { return *sf_; }
 
     // ---- individual scans ----
     void runXScan    (ScanResults &out) const;
@@ -62,6 +107,8 @@ public:
 
 private:
     RunParams p_;
+    std::shared_ptr<const SplittingModel> split_;   // f_MB(y, kT)
+    std::shared_ptr<const PionSFModel>    sf_;      // F2^M(x_M, Q2)
 
     // ---- physics ingredients (one place each; v1.4) ----
     // Meson-baryon splitting function f_MB(y, kT) of the selected channel

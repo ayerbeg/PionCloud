@@ -33,7 +33,13 @@
 
 namespace PionCloud {
 
-Calculator::Calculator(const RunParams &p) : p_(p)
+Calculator::Calculator(const RunParams &p)
+    : Calculator(p, nullptr, nullptr) {}
+
+Calculator::Calculator(const RunParams &p,
+                       std::shared_ptr<const SplittingModel> split,
+                       std::shared_ptr<const PionSFModel>    pionSF)
+    : p_(p)
 {
     // ---- apply precision preset (overrides ny/nkT if not CUSTOM) ----
     switch (p_.precision) {
@@ -51,7 +57,10 @@ Calculator::Calculator(const RunParams &p) : p_(p)
     // ---- channel / charge-state consistency (v1.4) ----
     // The Delta channels have zero coupling for dis = neutral in the
     // Fortran (fypiD, f_RhoDel); v1.3 then returned F2 = 0 silently.
-    if ((p_.flag == FLAG_PI_DELTA || p_.flag == FLAG_RHO_DELTA) &&
+    // (checks on flag/typ/L apply only to the built-in splitting model)
+    const bool builtinSplit = !split && p_.splitting_model.empty();
+    if (builtinSplit &&
+        (p_.flag == FLAG_PI_DELTA || p_.flag == FLAG_RHO_DELTA) &&
         p_.dis == DIS_NEUTRAL)
         throw std::invalid_argument(
             "Calculator: pi-Delta / rho-Delta are only implemented for "
@@ -64,7 +73,7 @@ Calculator::Calculator(const RunParams &p) : p_(p)
     // Pauli-Villars 0.27 GeV; HSS s-exp 1.56 GeV).  A cut-off far from the
     // range of the chosen regulator usually means a forgotten form_factor
     // or lambda setting (as in the v1.3 default PV + 1.33 GeV).
-    {
+    if (builtinSplit) {
         const bool   isDelta = (p_.flag == FLAG_PI_DELTA || p_.flag == FLAG_RHO_DELTA);
         const double lam     = isDelta ? p_.Ld : p_.L;   // the cut-off this channel uses
         auto warn = [&](const char *ff, double lo, double hi) {
@@ -132,6 +141,10 @@ Calculator::Calculator(const RunParams &p) : p_(p)
     if (p_.verbose)
         std::cout << "[Calculator] Built without CTEQ6 -- F2n and ratio will be zero.\n";
 #endif
+
+    // ---- physics models (v1.4): injected, registered by name, or built-in ----
+    split_ = split  ? std::move(split)  : ModelRegistry::makeSplitting(p_);
+    sf_    = pionSF ? std::move(pionSF) : ModelRegistry::makePionSF(p_);
 }
 
 // ----------------------------------------------------------
@@ -163,32 +176,22 @@ double Calculator::integrand(double x, double Q2,
 }
 
 // ----------------------------------------------------------
-//  splitting -- f_MB(y, kT) of the selected channel.
-//  The ONLY place where the channel is dispatched; to add a new
-//  meson-baryon channel, add its function to SplittingFunctions.hh,
-//  a ContributionFlag value, and one case here.
+//  splitting -- f_MB(y, kT) of the selected channel, via the
+//  SplittingModel interface (built-in Fortran ports or a user model;
+//  see Models.hh for how to add one).
 // ----------------------------------------------------------
 double Calculator::splitting(double y, double kT) const
 {
-    switch (p_.flag) {
-    case FLAG_PION:      return fypiN   (y, kT, p_.L,  p_.typ, p_.dis);
-    case FLAG_RHO:       return f_rhoN  (y, kT, p_.L,  p_.typ, p_.dis);
-    case FLAG_PI_DELTA:  return fypiD   (y, kT, p_.Ld, p_.typ, p_.dis);
-    case FLAG_RHO_DELTA: return f_RhoDel(y, kT, p_.Ld, p_.typ, p_.dis);
-    default:
-        throw std::invalid_argument("Calculator: Unknown ContributionFlag");
-    }
+    return split_->f(y, kT);
 }
 
 // ----------------------------------------------------------
-//  f2pi -- pion structure function at (x_pi, Q2).
-//  The ONLY place where the pion PDF set is dispatched.
+//  f2pi -- meson structure function at (x_pi, Q2), via the
+//  PionSFModel interface (GRV92 / GRS99 built-ins or a user model).
 // ----------------------------------------------------------
 double Calculator::f2pi(double xpi, double Q2) const
 {
-    return (p_.grv_version == GRV_99)
-         ? PionCloud::F2piGRV99(xpi, Q2, p_.pion_strange)
-         : PionCloud::F2piGRV  (xpi, Q2, p_.pion_strange);
+    return sf_->F2(xpi, Q2);
 }
 
 // ----------------------------------------------------------
