@@ -240,6 +240,23 @@ void InputReader::parseLine(const std::string &rawLine,
     // [user models registered in ModelRegistry]  (v1.4, see Models.hh)
     else if (key == "splitting_model")  p.splitting_model = val;
     else if (key == "pion_sf_model")    p.pion_sf_model   = val;
+    // [Q2 prescription and charge-state sum]  (v1.4)
+    else if (key == "q2_fixed" || key == "q2")   asDouble(p.q2_fixed);
+    else if (key == "charge_states") {
+        std::string vl = toLower(val);
+        if      (vl == "total"  || vl == "all" || vl == "sum") p.total_charge_states = true;
+        else if (vl == "single" || vl == "one")                p.total_charge_states = false;
+        else warnings_.push_back({lineNo, "Unknown charge_states '" + val + "', expected single|total"});
+    }
+    // [kbin integration method]  (v1.4)
+    else if (key == "kbin_method") {
+        std::string vl = toLower(val);
+        if      (vl == "grid"  || vl == "0") p.kbin_method = KBIN_GRID;
+        else if (vl == "exact" || vl == "1") p.kbin_method = KBIN_EXACT;
+        else warnings_.push_back({lineNo, "Unknown kbin_method '" + val + "', expected grid|exact"});
+    }
+    else if (key == "gl_nodes")   asInt(p.gl_nodes);
+    else if (key == "gl_ypanels") asInt(p.gl_ypanels);
     // [kbin precision preset]
     else if (key == "precision") {
         std::string vl = toLower(val);

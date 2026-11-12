@@ -39,7 +39,7 @@ Calculator::Calculator(const RunParams &p)
 Calculator::Calculator(const RunParams &p,
                        std::shared_ptr<const SplittingModel> split,
                        std::shared_ptr<const PionSFModel>    pionSF)
-    : p_(p)
+    : p_(p), gl_(p.gl_nodes > 0 ? p.gl_nodes : 16)
 {
     // ---- apply precision preset (overrides ny/nkT if not CUSTOM) ----
     switch (p_.precision) {
@@ -143,6 +143,10 @@ Calculator::Calculator(const RunParams &p,
 #endif
 
     // ---- physics models (v1.4): injected, registered by name, or built-in ----
+    // isospin sum over charge states (built-in pi-N / rho-N only)
+    if (p_.total_charge_states && builtinSplit &&
+        (p_.flag == FLAG_PION || p_.flag == FLAG_RHO))
+        chargeFactor_ = (p_.dis == DIS_NEUTRAL) ? 3.0 : 1.5;
     split_ = split  ? std::move(split)  : ModelRegistry::makeSplitting(p_);
     sf_    = pionSF ? std::move(pionSF) : ModelRegistry::makePionSF(p_);
 }
@@ -182,7 +186,15 @@ double Calculator::integrand(double x, double Q2,
 // ----------------------------------------------------------
 double Calculator::splitting(double y, double kT) const
 {
-    return split_->f(y, kT);
+    return chargeFactor_ * split_->f(y, kT);   // factor exactly 1.0 unless total_charge_states
+}
+
+// ----------------------------------------------------------
+//  Q2at -- Q2 used at Bjorken x (v1.4: optional fixed Q2)
+// ----------------------------------------------------------
+double Calculator::Q2at(double x) const
+{
+    return (p_.q2_fixed > 0.0) ? p_.q2_fixed : calcQ2(p_.E, x, p_.theta_e);
 }
 
 // ----------------------------------------------------------
@@ -224,7 +236,7 @@ void Calculator::runXScan(ScanResults &out) const
 
     for (int ix = 0; ix <= p_.nx; ++ix) {
         const double x  = p_.xmin + ix * xstep;
-        const double Q2 = calcQ2(p_.E, x, p_.theta_e);
+        const double Q2 = Q2at(x);
 
         // ---- theta_h integration (Simpson composite) ----
         double F2piK = 0.0;
@@ -336,7 +348,7 @@ void Calculator::runThetaScan(ScanResults &out) const
         for (int ix = 0; ix <= p_.nx_int; ++ix) {
             const double x  = xmin_th + ix * xstep_th;
             const double wx = simpsonWeight(ix, p_.nx_int);
-            const double Q2 = calcQ2(p_.E, x, p_.theta_e);
+            const double Q2 = Q2at(x);
 
             // ---- |k| integration (Simpson composite) ----
             double F2pi_k = 0.0;
@@ -414,11 +426,36 @@ ScanResults Calculator::runAll() const
 double Calculator::eval(double x, double Q2) const
 {
     if (Q2 <= 0.0)
-        Q2 = calcQ2(p_.E, x, p_.theta_e);
+        Q2 = Q2at(x);
     if (Q2 <= 0.0 || x <= 0.0 || x >= 1.0)
         return 0.0;
+    return kbinF2(x, Q2);
+}
 
-    const double kTmax  = 10.0;
+// ----------------------------------------------------------
+//  kbinF2 -- F2^(MB)(x; |k| window, angular window) at one (x, Q2).
+//  Shared by runKBinScan() and eval() (v1.4; before, both contained
+//  their own copy of the loops).  Method chosen by p_.kbin_method.
+// ----------------------------------------------------------
+double Calculator::kbinF2(double x, double Q2) const
+{
+    if (Q2 <= 0.0) return 0.0;
+    return (p_.kbin_method == KBIN_EXACT) ? kbinF2Exact(x, Q2)
+                                          : kbinF2Grid (x, Q2);
+}
+
+// ----------------------------------------------------------
+//  kbinF2Grid -- the f2_pi_sub.f90 algorithm (unchanged from v1.3):
+//    y  in [x, 1]       : ny  Simpson steps
+//    kT in [0, 10 GeV]  : nkT Simpson steps, points outside the
+//                         |k| / cos(phi_k) windows are skipped.
+//  Known limitation (why KBIN_EXACT exists): the cut makes the kT
+//  integrand a step function (Simpson then converges only like 1/nkT),
+//  and for |k| < 0.4 GeV more than 96% of the kT points are rejected.
+// ----------------------------------------------------------
+double Calculator::kbinF2Grid(double x, double Q2) const
+{
+    const double kTmax  = 10.0;                           // Fortran: kTmaxk = 10
     const double kTstep = kTmax / p_.nkT;
     const double y0     = x;
     const double ystep  = (1.0 - y0) / p_.ny;
@@ -445,10 +482,54 @@ double Calculator::eval(double x, double Q2) const
         }
         fpi_intk *= (kTstep / 3.0);
 
+        // pion structure function at x_pi = x/y (set chosen in f2pi())
         if (y > 0.0 && x / y < 1.0)
             F2piK += wy * fpi_intk * f2pi(x / y, Q2);
     }
     return F2piK * (ystep / 3.0);
+}
+
+// ----------------------------------------------------------
+//  kbinF2Exact -- same quantity, integrated over the exact region:
+//    F2 = int_x^ymax dy F2pi(x/y, Q2) int_{U(y)} du f(y, sqrt(u)),
+//  u = kT^2 (so 2 kT dkT = du), U(y) = kbinRegionU(...) (Quadrature.hh),
+//  ymax = kbinYmax(kmax) (no allowed u above it).
+//  y : gl_ypanels equal panels x gl_nodes Gauss-Legendre nodes.
+//  u : each interval of U(y) is split at fixed breakpoints (the
+//      splitting functions fall off exponentially in kT^2) and each
+//      piece gets gl_nodes Gauss-Legendre nodes.
+// ----------------------------------------------------------
+double Calculator::kbinF2Exact(double x, double Q2) const
+{
+    static const double ubreak[] = {0.0, 0.01, 0.04, 0.1, 0.25, 0.5, 1.0,
+                                    2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 100.0};
+    const double ymax = std::min(kbinYmax(p_.kmax), 1.0);
+    if (ymax <= x) return 0.0;
+
+    auto inner = [&](double y) {                  // int over allowed u
+        double g = 0.0;
+        for (auto &iv : kbinRegionU(y, p_.kmin, p_.kmax, p_.cosph_min, p_.cosph_max)) {
+            double a = iv.first;
+            for (double bk : ubreak) {
+                if (bk <= a) continue;
+                const double b = std::min(bk, iv.second);
+                g += gl_.integrate([&](double u){ return splitting(y, std::sqrt(u)); }, a, b);
+                a = b;
+                if (a >= iv.second) break;
+            }
+        }
+        return g;
+    };
+
+    const double h = (ymax - x) / p_.gl_ypanels;
+    double F2 = 0.0;
+    for (int ip = 0; ip < p_.gl_ypanels; ++ip) {
+        const double ya = x + ip * h, yb = ya + h;
+        F2 += gl_.integrate([&](double y) {
+            return (y > 0.0 && x / y < 1.0) ? f2pi(x / y, Q2) * inner(y) : 0.0;
+        }, ya, yb);
+    }
+    return F2;
 }
 
 
@@ -506,8 +587,6 @@ void Calculator::runKBinScan(ScanResults &out) const
     out.xScan.reserve(p_.nx + 1);
 
     const double xstep  = (p_.xmax - p_.xmin) / p_.nx;
-    const double kTmax  = 10.0;                           // Fortran: kTmaxk = 10
-    const double kTstep = kTmax / p_.nkT;
 
     double F2pi0 = 0.0;
 
@@ -516,46 +595,14 @@ void Calculator::runKBinScan(ScanResults &out) const
 
     for (int ix = 0; ix <= p_.nx; ++ix) {
         const double x  = p_.xmin + ix * xstep;
-        const double Q2 = calcQ2(p_.E, x, p_.theta_e);
+        const double Q2 = Q2at(x);
 
         // Small-x warning: at theta_e=12 deg, Q2 can be negative for x<0.01
         if (Q2 <= 0.0 && p_.verbose)
             std::cerr << "  [kbin-scan] WARNING: Q2<=0 at x=" << x
                       << " (theta_e=" << p_.theta_e << " deg) -- point skipped.\n";
 
-        const double y0    = x;
-        const double y1    = 1.0;
-        const double ystep = (y1 - y0) / p_.ny;
-
-        double F2piK = 0.0;
-
-        for (int iy = 0; iy <= p_.ny; ++iy) {
-            const double y  = y0 + iy * ystep;
-            const double wy = simpsonWeight(iy, p_.ny);
-
-            double fpi_intk = 0.0;
-
-            for (int ikT = 0; ikT <= p_.nkT; ++ikT) {
-                const double kT  = ikT * kTstep;
-                const double wkT = simpsonWeight(ikT, p_.nkT);
-
-                const double km  = kMag  (kT, y);
-                const double cph = cosPhi(kT, y);
-
-                if (cph > p_.cosph_max) continue;
-                if (cph < p_.cosph_min) continue;
-                if (km  < p_.kmin)      continue;
-                if (km  > p_.kmax)      continue;
-
-                fpi_intk += wkT * 2.0 * kT * splitting(y, kT);
-            }
-            fpi_intk *= (kTstep / 3.0);
-
-            // pion structure function at x_pi = x/y (set chosen in f2pi())
-            if (y > 0.0 && x / y < 1.0 && Q2 > 0.0)
-                F2piK += wy * fpi_intk * f2pi(x / y, Q2);
-        }
-        F2piK *= (ystep / 3.0);
+        const double F2piK = kbinF2(x, Q2);   // 0 if Q2 <= 0
 
         F2pi0 += simpsonWeight(ix, p_.nx) * F2piK;
 

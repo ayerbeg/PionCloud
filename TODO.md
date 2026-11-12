@@ -42,8 +42,10 @@
   0.2237, and whether the paper includes off-shell/delta-function terms
   (their Eq. 5).  analyses/code_review/multiplicity/nmult.cc reproduces this.
 
-[LOW] [open]  KBIN: ANALYTIC kT LIMITS + GAUSS QUADRATURE INSTEAD OF
-              kT in [0,10] GeV WITH continue-CUTS (accuracy, speed)
+[LOW] [done v1.4]  KBIN: ANALYTIC kT LIMITS + GAUSS QUADRATURE
+              -> kbin_method = exact (0.002% in 0.3 s; grid kept as default)
+[LOW] [open]  MAKE kbin_method = exact THE DEFAULT (changes kbin results by
+              typically <1%, up to several % near end points; needs decision)
 [LOW] [done v1.4]  ARCHITECTURE STEP 1: SplittingModel / PionSFModel
               interfaces + ModelRegistry + injection (include/Models.hh)
 [LOW] [open]  ARCHITECTURE STEP 2: Regulator as separate interface; LHAPDF
@@ -71,6 +73,8 @@
   (cosph_min=0, cosph_max=1, kmin=0.001, kmax=10.0).
 
 [MEDIUM] [open]  SUM OF CHANNELS (piN + rhoN + piDelta)
+  v1.4: sum over CHARGE STATES done (charge_states = total); the sum over
+  channels (one run giving piN + rhoN + piDelta) is still open.
   The total pion-cloud contribution F2^(piN)(x) is the sum of the
   three individual channels.  Currently user must run three separate
   scans and add results manually.  A combined scan_mode = all_channels
@@ -163,7 +167,7 @@
   with curves extracted from the vector figures of PR12-15-006 (Figs. 5,
   6, 37, 46, 47): agreement ~1% (bulk <= 2-4%).  Not yet run by ctest.
 
-[MEDIUM] [open]  CTEST REGRESSION AGAINST PUBLISHED CURVES
+[MEDIUM] [done v1.4]  CTEST REGRESSION AGAINST PUBLISHED CURVES -> PionCloudValidation
   Turn docs/validation/ref_data into a ctest (tolerance ~3% in the bulk,
   where the curve is within x100 of its maximum).  Needs no ROOT/Python
   if done in C++ with the reference .dat files.

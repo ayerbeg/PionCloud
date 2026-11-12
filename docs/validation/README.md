@@ -51,3 +51,12 @@ cp /tmp/pc_validation/plots/fig5_th30-70.pdf docs/figures/fig5.pdf
   ×3 for neutral, ×3/2 for charge exchange.
 - CTEQ6M F2p/F2n lies 3–7% above the published orange curves (open item).
 - θe = 35° reproduces the figures. θe = 12° does not: it is 3–11% high at x ≳ 0.15.
+
+## Automatic test (v1.4)
+
+`ctest` runs `PionCloudValidation` (`tests/validation.cc`), which recomputes these curves and
+compares them with `ref_data/`. Pass criteria:
+- tagged curves: −1% < median < +3% and max |dev| < 8% in the bulk;
+- total F₂^(πN) (`charge_states = total`): |median| < 0.5%.
+
+With `kbin_method = exact` the kbin maxima halve: Fig. 6 6–7% → 3.5%, Fig. 37 ~2.5% → 1–1.6%.

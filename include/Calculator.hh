@@ -62,6 +62,7 @@
 #include "PhysicsParams.hh"
 #include "Results.hh"
 #include "Models.hh"
+#include "Quadrature.hh"
 
 #include <memory>
 
@@ -109,6 +110,16 @@ private:
     RunParams p_;
     std::shared_ptr<const SplittingModel> split_;   // f_MB(y, kT)
     std::shared_ptr<const PionSFModel>    sf_;      // F2^M(x_M, Q2)
+    GaussLegendre                         gl_;      // nodes for KBIN_EXACT
+    double chargeFactor_ = 1.0;   // isospin sum factor (total_charge_states)
+
+    // Q2 at Bjorken x: q2_fixed if > 0, else calcQ2(E, x, theta_e)
+    double Q2at(double x) const;
+
+    // kbin quantity F2^(MB)(x; |k| window, angle window) at one (x, Q2):
+    double kbinF2     (double x, double Q2) const;  // dispatches on kbin_method
+    double kbinF2Grid (double x, double Q2) const;  // Fortran f2_pi_sub algorithm
+    double kbinF2Exact(double x, double Q2) const;  // exact region + Gauss-Legendre
 
     // ---- physics ingredients (one place each; v1.4) ----
     // Meson-baryon splitting function f_MB(y, kT) of the selected channel

@@ -19,6 +19,8 @@
 #include "Calculator.hh"
 #include "Results.hh"
 #include "Models.hh"
+#include "Quadrature.hh"
+#include <random>
 
 #ifdef HAVE_CTEQ6
 #include "CTEQ6.hh"
@@ -1141,6 +1143,95 @@ static void test_CTEQ6()
 }
 
 
+
+// ============================================================
+//  kbin exact method (v1.4): Gauss-Legendre, analytic region,
+//  agreement with the converged grid method
+// ============================================================
+static void test_KBinExact()
+{
+    std::cout << "\n--- kbin exact method ---\n";
+    // 1. Gauss-Legendre exact for degree <= 2n-1
+    {
+        GaussLegendre g(8);
+        double I15 = g.integrate([](double t){ return std::pow(t, 15); }, 0.0, 1.0);
+        double I14 = g.integrate([](double t){ return std::pow(t, 14); }, 0.0, 1.0);
+        near(I15, 1.0/16.0, 1e-14, "GL(8): int_0^1 t^15 dt = 1/16 (exact)");
+        near(I14, 1.0/15.0, 1e-14, "GL(8): int_0^1 t^14 dt = 1/15 (exact)");
+    }
+    // 2. analytic region in u = kT^2 == brute-force cut test
+    {
+        std::mt19937 rng(12345);
+        std::uniform_real_distribution<double> U(0.0, 1.0);
+        int bad = 0, n = 0;
+        const double win[][4] = {{0.06,0.10,0.342,0.866},{0.25,0.40,0.342,0.866},
+                                 {0.06,0.25,0.0,0.866},{0.10,0.20,0.5,0.95}};
+        for (auto &w : win)
+            for (double y : {0.02, 0.05, 0.1, 0.2, 0.3, 0.45}) {
+                auto reg = kbinRegionU(y, w[0], w[1], w[2], w[3]);
+                const double A = 2*mN*(1-y), c = y*(2-y)*mN*mN;
+                for (int i = 0; i < 400; ++i) {
+                    const double u = 0.5 * U(rng) * U(rng);    // denser at small u
+                    const double k = std::sqrt(u + (u+c)*(u+c)/(A*A));
+                    const double cph = (u + c) / (A * k);
+                    const bool inCut = k >= w[0] && k <= w[1] && cph >= w[2] && cph <= w[3];
+                    bool inReg = false;
+                    for (auto &iv : reg) if (u >= iv.first && u <= iv.second) inReg = true;
+                    if (inCut != inReg) ++bad;
+                    ++n;
+                }
+            }
+        check(bad == 0, "kbinRegionU == brute-force |k|/cos(phi_k) cuts ("
+              + std::to_string(n) + " random points)", std::to_string(bad) + " mismatches");
+    }
+    // 3. exact method == converged grid method (Fig. 37 configuration)
+    {
+        RunParams p;
+        p.scanMode = "kbin"; p.outputMode = OUT_NONE; p.verbose = false;
+        p.dis = DIS_CHARGE_EXCHANGE; p.kmin = 0.25; p.kmax = 0.40;
+        p.xmin = 0.06; p.xmax = 0.18; p.nx = 4;
+        RunParams pg = p; pg.ny = 400; pg.nkT = 50000; pg.kbin_method = KBIN_GRID;
+        RunParams pe = p; pe.kbin_method = KBIN_EXACT;
+        ScanResults rg, re;
+        Calculator(pg).runKBinScan(rg);
+        Calculator(pe).runKBinScan(re);
+        double worst = 0.0;
+        for (size_t i = 0; i < rg.xScan.size(); ++i)
+            worst = std::max(worst, std::abs(re.xScan[i].F2piK / rg.xScan[i].F2piK - 1.0));
+        check(worst < 5e-3, "exact vs grid(ny=400,nkT=50000) agree to < 0.5% (Fig.37 setup)",
+              "worst = " + std::to_string(worst));
+        // eval() uses the same kernel as the scan
+        RunParams pe2 = pe; Calculator ce(pe2);
+        near(ce.eval(re.xScan[2].x, re.xScan[2].Q2), re.xScan[2].F2piK, 1e-15,
+             "eval() == runKBinScan() with kbin_method = exact");
+    }
+}
+
+
+// ============================================================
+//  v1.4 options: q2_fixed, total_charge_states
+// ============================================================
+static void test_Options14()
+{
+    std::cout << "\n--- q2_fixed / total_charge_states ---\n";
+    RunParams p;
+    p.scanMode = "kbin"; p.outputMode = OUT_NONE; p.verbose = false;
+    p.xmin = 0.06; p.xmax = 0.16; p.nx = 2; p.ny = 20; p.nkT = 400;
+    p.kmin = 0.06; p.kmax = 0.25;
+    { RunParams q = p; q.q2_fixed = 3.0; ScanResults r; Calculator(q).runKBinScan(r);
+      bool all = true; for (auto &pt : r.xScan) if (pt.Q2 != 3.0) all = false;
+      check(all, "q2_fixed = 3 used at every x"); }
+    ScanResults rc, rn, rt, rtn;
+    { RunParams q = p; q.dis = DIS_CHARGE_EXCHANGE; Calculator(q).runKBinScan(rc); }
+    { RunParams q = p; q.dis = DIS_NEUTRAL;         Calculator(q).runKBinScan(rn); }
+    { RunParams q = p; q.dis = DIS_CHARGE_EXCHANGE; q.total_charge_states = true; Calculator(q).runKBinScan(rt); }
+    { RunParams q = p; q.dis = DIS_NEUTRAL;         q.total_charge_states = true; Calculator(q).runKBinScan(rtn); }
+    near(rt.xScan[1].F2piK / rc.xScan[1].F2piK, 1.5, 1e-12, "total = 3/2 x charge exchange");
+    near(rtn.xScan[1].F2piK / rn.xScan[1].F2piK, 3.0, 1e-12, "total = 3 x neutral");
+    near(rt.xScan[1].F2piK, rc.xScan[1].F2piK + rn.xScan[1].F2piK,
+         1e-12 * rt.xScan[1].F2piK, "total = neutral + charge exchange (isospin 1+2)");
+}
+
 // ============================================================
 //  Models.hh (v1.4): user models are injected / registered
 // ============================================================
@@ -1210,6 +1301,8 @@ int main()
     test_Calculator();
     test_KBinScan();
     test_Models();
+    test_KBinExact();
+    test_Options14();
     test_Regression();
     test_OutputASCII();
     test_CTEQ6();

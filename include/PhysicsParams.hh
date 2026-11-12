@@ -90,6 +90,14 @@ enum PrecisionPreset {
     PRECISION_NORMAL      = 2,   // ny=50,  nkT=2000  -- development
     PRECISION_PUBLICATION = 3    // ny=100, nkT=50000 -- matches Fortran
 };
+// ----------------------------------------------------------
+//  kbin integration method (v1.4)
+// ----------------------------------------------------------
+enum KBinMethod {
+    KBIN_GRID  = 0,   // f2_pi_sub.f90: uniform kT grid on [0,10] GeV, ny x nkT
+                      // Simpson, cuts applied by rejecting grid points (default)
+    KBIN_EXACT = 1    // exact |k|/angle region in u = kT^2 + Gauss-Legendre
+};
 enum OutputMode {
     OUT_NONE  = 0,
     OUT_ASCII = 1 << 0,   // write ASCII summary + data tables
@@ -193,6 +201,21 @@ struct RunParams {
     // GRV92 has an SU(3)-symmetric sea (sbar = S); GRS99 has its own sbar.
     bool pion_strange = false;
 
+    // ---- Q2 prescription (v1.4) ----
+    // q2_fixed <= 0 (default): Q2(x) from beam energy E and fixed electron
+    //   angle theta_e (calcQ2, as in the Fortran).
+    // q2_fixed  > 0: use this Q2 [GeV^2] at every x (model studies,
+    //   comparison with theory at fixed scale).
+    double q2_fixed = 0.0;
+
+    // ---- charge states (v1.4) ----
+    // false (default): one charge state, as selected by `dis` (Fortran).
+    // true: sum over charge states for pi-N / rho-N
+    //   (neutral x3, charge_exchange x3/2: isospin factors 1+2 = 3);
+    //   pi-Delta / rho-Delta are already summed in the Fortran -> x1.
+    //   This is the "fully integrated" F2^(piN) of the published figures.
+    bool total_charge_states = false;
+
     // ---- user models (v1.4, see Models.hh) ----
     // Empty (default): built-in model selected by flag / grv_version.
     // Otherwise the name of a model registered with ModelRegistry
@@ -206,6 +229,16 @@ struct RunParams {
     // PRECISION_NORMAL:           ny=50,  nkT=2000
     // PRECISION_PUBLICATION:      ny=100, nkT=50000 (matches Fortran)
     PrecisionPreset precision = PRECISION_CUSTOM;
+
+    // ---- kbin integration method (v1.4) ----
+    // KBIN_GRID (default): the Fortran algorithm, reproduces it exactly.
+    // KBIN_EXACT: solves the |k| window and angular cuts analytically in
+    //   u = kT^2 at each y (at most two intervals) and integrates with
+    //   Gauss-Legendre: no rejected points, no step-function integrand.
+    //   gl_nodes nodes per panel; y in [x, ymax] split into gl_ypanels.
+    KBinMethod kbin_method = KBIN_GRID;
+    int        gl_nodes    = 16;
+    int        gl_ypanels  = 32;
 
     // ---- inclusive mode shortcut ----
     // When true, overrides cosph_min=0, cosph_max=1, kmin=0.001, kmax=10.0

@@ -220,3 +220,80 @@ so the difference lies between the Fortran πΔ and the 2016 paper. Candidates:
 Needs a term-by-term comparison with Eq. (5) of the paper (TODO).
 
 **Numbers.** Comments only: bit-identical.
+
+### kbin scan: exact integration region (`kbin_method = exact`)
+
+**What.**
+- `kbinF2Exact()` (`Calculator.cc`) and `include/Quadrature.hh`.
+- With u = k_T², A = 2m_N(1−y) and c = y(2−y)m_N², the f2_pi_sub kinematics give
+  |k|²(u) = u + (u+c)²/A² and cos φ_k = (u+c)/(A|k|).
+- Each cut becomes a quadratic inequality in u:
+  - the |k| window is an interval;
+  - cos φ_k ≤ c_max lies between two roots;
+  - cos φ_k ≥ c_min lies outside two roots.
+- So the allowed region at fixed y is at most two u-intervals, and no y above
+  y_max(k_max) contributes.
+- Both are integrated with Gauss–Legendre: y in `gl_ypanels` panels; u in pieces split at fixed
+  breakpoints, `gl_nodes` nodes per piece.
+- The old algorithm is kept unchanged as `kbin_method = grid`, the default. It now lives in
+  `kbinF2Grid()`, shared by `runKBinScan()` and `eval()`, which previously had separate copies
+  of the loops.
+
+**Why.**
+- The f2_pi_sub method puts k_T on a uniform grid over [0, 10] GeV and rejects points outside
+  the windows with `continue`. The integrand is then a step function, so Simpson converges only
+  slowly.
+- For |k| ≤ 0.4 GeV more than 96% of the k_T points are rejected.
+- The error is dominated by the y grid near the kinematic end point.
+
+**Evidence** (`analyses/code_review/kbin_convergence`). Maximum deviation from the exact method
+at 32×64, over the x points within ×1000 of the maximum:
+
+| configuration | grid 100×5 000 (Fortran setting) | grid 400×200 000 (≈15 s) | exact 16×32 (0.3 s) |
+|---|---|---|---|
+| Fig. 5, \|k\| = 60–100 MeV | up to 100% (end point) | 7.8% | 0.0006% |
+| Fig. 6 πN | 13.5% | 0.78% | 0.002% |
+| Fig. 37 πN | 5.0% | 0.25% | 0.002% |
+
+- The exact method agrees with itself at two resolutions to 0.002%. The grid method converges
+  toward it.
+- **Against the published curves**, the bulk maximum deviation halves with the exact method:
+  Fig. 6 from 6–7% to 3.5%, Fig. 37 from about 2.5% to 1–1.6%. The largest deviations in the
+  validation were therefore mostly grid artefacts.
+
+**Tests.**
+- Gauss–Legendre is exact up to degree 2n−1.
+- The analytic region matches a brute-force cut test on 9,600 random points with 0 mismatches.
+- Exact vs grid (400×50 000) agree to < 0.5%.
+- `eval()` equals the scan.
+
+**Numbers.** Default (`grid`): bit-identical (23/23). Recommendation: use `kbin_method = exact`
+for new results. Keep `grid` to reproduce the Fortran.
+
+### `q2_fixed` and `charge_states = total`
+
+- **`q2_fixed = <GeV²>`.** A fixed Q² at every x, instead of Q²(x) at a fixed electron angle.
+  Useful for comparisons with theory at a fixed scale. One function `Calculator::Q2at()` now
+  serves all scans and `eval()`.
+- **`charge_states = total`.** Returns the sum over charge states for πN and ρN: ×3 for neutral,
+  ×3/2 for charge exchange (isospin 1 + 2). This is the "fully integrated" F₂^(πN) of the
+  published figures, which v1.3 users had to scale by hand. The Δ channels are already summed
+  in the Fortran, so their factor is 1.
+
+**Tests.** Q² constant; total = 3× neutral = 3/2× charge exchange = neutral + charge exchange.
+Defaults: bit-identical.
+
+### Automatic validation against the published TDIS figures (ctest `PionCloudValidation`)
+
+**What.** `tests/validation.cc` runs the 17 configurations of Figs. 5, 6, 37, 46 and 47
+(PR12-15-006) and compares them with `docs/validation/ref_data`.
+
+**Pass criteria.**
+- Tagged curves: −1% < median < +3% and max |dev| < 8% in the bulk.
+- Totals: |median| < 0.5%.
+
+Measured: medians +0.3% to +1.7%, max ≤ 6.9%, totals −0.1%.
+
+**Why.** It protects the agreement with the published physics against future changes; it runs
+in 2 s. Shown to work: with Λ = 1.48 GeV (HSS −1σ), 15 of 17 checks fail. The two that pass
+are πΔ, which does not use `lambda`.

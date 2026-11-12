@@ -13,3 +13,16 @@ set_tests_properties(PionCloudTests PROPERTIES
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     PASS_REGULAR_EXPRESSION "Results: [0-9]+ passed, 0 failed"
     FAIL_REGULAR_EXPRESSION "\\[FAIL\\]")
+
+# v1.4: regression against the PUBLISHED TDIS curves (docs/validation/ref_data).
+# Fails if PionCloud stops reproducing PR12-15-006 Figs. 5, 6, 37, 46, 47
+# within the tolerances documented in tests/validation.cc.
+add_executable(PionCloudValidation validation.cc)
+target_link_libraries(PionCloudValidation PRIVATE PionCloudLib)
+target_compile_definitions(PionCloudValidation PRIVATE
+    PIONCLOUD_REF_DIR="${PROJECT_SOURCE_DIR}/docs/validation/ref_data")
+add_test(NAME PionCloudValidation COMMAND PionCloudValidation)
+set_tests_properties(PionCloudValidation PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    PASS_REGULAR_EXPRESSION "Results: [0-9]+ passed, 0 failed"
+    FAIL_REGULAR_EXPRESSION "\\[FAIL\\]")
