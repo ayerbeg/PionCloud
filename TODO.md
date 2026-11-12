@@ -51,6 +51,15 @@
   Column header now encodes channel and mode:
   F2piK_piN_kbin, F2piK_piN_neutral_theta, etc.
 
+[HIGH] [done]  X-SCAN/KBIN ASCII FILE NAME AND COLUMN SEPARATION (2026-11)
+  The x-scan/kbin table was written as "<base>_pi-N (flag=0)_kbin.dat"
+  (spaces/parentheses, label from flagName instead of channelTag), and
+  the F2n column (setw 14 for a 14-char %.8e number) was glued to the
+  running moment, so the file could not be read with whitespace parsers.
+  Now <base>_xscan.dat as documented, labels use channelTag, all fields
+  are separated, and the F2N comment no longer claims "charge symmetry"
+  for nucleon=proton (params file said CTEQ6L; the code uses CTEQ6M).
+
 [LOW] [open]  RUNNING MOMENT IN THETA-SCAN IS TRAPEZOIDAL
   The theta-scan running moment is trapezoidal while the first
   moment uses Simpson.  The x-scan running moment was updated to
@@ -103,6 +112,19 @@
     - runXScan regression (3Var_x.f): need 3Var_x.f output with
       k=[60,250] MeV -- this is the actual black piN curve in f2piN.png
     - runThetaScan regression (3Var_theta.f): need Fig.47 Fortran output
+  Partial (2026-11): docs/validation/ compares x, theta and kbin scans
+  with curves extracted from the vector figures of PR12-15-006 (Figs. 5,
+  6, 37, 46, 47): agreement ~1% (bulk <= 2-4%).  Not yet run by ctest.
+
+[MEDIUM] [open]  CTEST REGRESSION AGAINST PUBLISHED CURVES
+  Turn docs/validation/ref_data into a ctest (tolerance ~3% in the bulk,
+  where the curve is within x100 of its maximum).  Needs no ROOT/Python
+  if done in C++ with the reference .dat files.
+
+[LOW] [open]  F2n / F2p NORMALISATION VS PUBLISHED ORANGE CURVES
+  CTEQ6M F2 (used for the ratio) is 3-7% above the F2n/F2p curves of
+  PR12-15-006 Figs. 5, 6, 37 (x-dependent, max near x~0.15).  Not due
+  to theta_e.  Find which set/order/Q2 the published curves used.
 
 [LOW] [done]  TEST COVERAGE FOR SCAN_MODE=ALL WITH KBIN
   Documented: scan_mode=all runs kbin last, which overwrites xScan.
@@ -163,6 +185,24 @@
   directly (no charge symmetry), while nucleon=neutron uses
   charge symmetry: u_n=d_p, d_n=u_p.
 
+[LOW] [done]  MANUAL: FIGURES AND CODE FONT (2026-11)
+  Manual referred to "Fig. 47", "black curve", "four k-bin curves"
+  without showing or citing them.  New section "Worked examples: the
+  published TDIS figures" cites PR12-15-006 / PR12-14-010 / Hobbs
+  arXiv:1411.2216, gives inputs and overlays PionCloud on the published
+  curves (docs/figures, docs/validation).  Corrected: HSS = Holtmann-
+  Szczurek-Speth (not "Hobbs, Shanahan, Strikman"); theta_e = 35 deg also
+  for kbin (12 deg does not reproduce the figures); inclusive_mode gives
+  one charge state (x3 neutral, x3/2 charge exchange for the total);
+  pi-Delta uses lambda_delta; nkt=50000 takes ~1 s, not hours.  Listings
+  now use Inconsolata, upright comments, columns=fullflexible (the old
+  CM-typewriter italic was letter-spaced by columns=fixed).
+
+[LOW] [open]  KSCAN MODE (F2piN vs |k|)
+  Needed to reproduce Fig. 45 of PR12-15-006 (|k| dependence for
+  Delta_x=[0,0.6], all angles).  Reference curves can be extracted
+  from page 66 with docs/validation/extract_curves.py.
+
 [LOW] [open]  TSCAN MODE (F2piN vs -t / Mandelstam)
   Plot F2^(piN) vs -t by binning the (y,kT) integrand over
   t(kT,y) = -kT^2 - mN^2*y^2/(1-y) windows.
@@ -171,7 +211,7 @@
 
 # ============================================================
 # END OF TODO LIST
-# Last updated: April 2026
+# Last updated: November 2026
 # Version: v1.3
 # Tests: 150 passed, 0 failed
 # ============================================================

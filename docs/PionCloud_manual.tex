@@ -1,6 +1,9 @@
 \documentclass[11pt,a4paper]{article}
 
 % ---- packages ----
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}                 % text: Latin Modern (scalable CM)
+\usepackage[varqu,varl,scaled=0.95]{zi4}  % code: Inconsolata (straight quotes)
 \usepackage[margin=2.5cm,headheight=14pt]{geometry}
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
@@ -24,32 +27,35 @@
 \definecolor{titleblue}{rgb}{0.1,0.2,0.5}
 
 % ---- listings style ----
-\lstdefinestyle{cppstyle}{
+% Code is set in Inconsolata (zi4).  columns=fullflexible + keepspaces keeps
+% the natural letter spacing of the monospaced font (the listings default,
+% columns=fixed, stretches every glyph onto a grid and produced the wide,
+% letter-spaced italic comments of earlier versions).  Comments are upright
+% and coloured rather than italic: Inconsolata has no italic shape.
+\lstset{
+  basicstyle=\ttfamily\small,
+  columns=fullflexible, keepspaces=true, upquote=true,
   backgroundcolor=\color{codebg},
   frame=single, rulecolor=\color{codeframe},
-  basicstyle=\ttfamily\small,
+  breaklines=true, showstringspaces=false,
+  aboveskip=0.8em, belowskip=0.8em
+}
+\lstdefinestyle{cppstyle}{
   keywordstyle=\color{keywordcolor}\bfseries,
-  commentstyle=\color{commentcolor}\itshape,
+  commentstyle=\color{commentcolor},
   stringstyle=\color{stringcolor},
   language=C++,
-  breaklines=true, breakatwhitespace=true,
-  tabsize=4, showstringspaces=false,
+  breakatwhitespace=true, tabsize=4,
   numbers=left, numberstyle=\tiny\color{gray}, numbersep=6pt
 }
 \lstdefinestyle{iniStyle}{
-  backgroundcolor=\color{codebg},
-  frame=single, rulecolor=\color{codeframe},
-  basicstyle=\ttfamily\small,
-  commentstyle=\color{commentcolor}\itshape,
+  commentstyle=\color{commentcolor},
   morecomment=[l]{\#},
-  breaklines=true,
-  numbers=none, showstringspaces=false
+  numbers=none
 }
 \lstdefinestyle{bashstyle}{
-  backgroundcolor=\color{codebg},
-  frame=single, rulecolor=\color{codeframe},
-  basicstyle=\ttfamily\small,
-  breaklines=true, showstringspaces=false
+  commentstyle=\color{commentcolor},
+  morecomment=[l]{\#}
 }
 
 % ---- header/footer ----
@@ -105,7 +111,7 @@ The code was developed as a framework for BoNuS/TDIS analysis at JLab.
 \end{abstract}
 
 \vfill
-{\small Last updated: April 2026}
+{\small Last updated: November 2026}
 \end{titlepage}
 
 \tableofcontents
@@ -156,12 +162,15 @@ a library interface, and ROOT output.
 
 Key references:
 \begin{itemize}
-\item Hobbs, Shanahan, Strikman (HSS): form factor parametrisation and
-  $\Lambda$ values used as defaults.
-\item Gl\"{u}ck, Reya, Vogt (GRV92): pion parton distributions,
-  Z.~Phys.~\textbf{C53} (1992) 651.
-\item Pumplin et al.\ (CTEQ6): nucleon PDFs,
-  JHEP \textbf{0207} (2002) 012.
+\item TDIS proposal~\cite{TDIS15}, Sec.~``Pion cloud model'' and
+  Figs.~5, 6, 37, 46, 47: the calculations that the Fortran codes were
+  written for and that \picloud{} reproduces (Sec.~\ref{sec:validation}).
+  Also T.~J.~Hobbs~\cite{Hobbs15}, Fig.~2.
+\item Holtmann, Szczurek, Speth (HSS)~\cite{HSS96}: $\Lambda$ values
+  constrained by inclusive $pp\to nX$ data, used as defaults
+  (labelled ``HSS'' in the Fortran sources).
+\item Gl\"{u}ck, Reya, Vogt (GRV92)~\cite{GRV92}: pion parton distributions.
+\item Pumplin et al.\ (CTEQ6)~\cite{CTEQ6}: nucleon PDFs.
 \end{itemize}
 
 % ============================================================
@@ -283,8 +292,10 @@ window.
 \subsubsection{\code{theta} scan}
 
 Integrates over $x$ and $|\vec{k}|$ at each output angle $\theta_h$.
-Matches \texttt{3Var\_theta.f} exactly.  Used to produce Fig.~47-style
-plots of the angular distribution $F_2^{(\pi N)}(\theta_h;\Delta x, \Delta k)$.
+Matches \texttt{3Var\_theta.f} exactly.  Used to produce
+plots of the angular distribution $F_2^{(\pi N)}(\theta_h;\Delta x, \Delta k)$
+such as Fig.~47 of the TDIS proposal~\cite{TDIS15}
+(reproduced in Fig.~\ref{fig:fig47}).
 The internal $x$ and $|\vec{k}|$ integration ranges are controlled by
 \inikey{x\_min\_th}, \inikey{x\_max\_th}, \inikey{k\_min\_th},
 \inikey{k\_max\_th}:
@@ -312,7 +323,14 @@ The $|\vec{k}|$ magnitude is computed analytically from $(k_T, y)$:
          {4\,m_N^2\,(1-y)^2}}
 \end{equation}
 This mode is used to produce the four $|\vec{k}|$-bin curves and the
-individual channel contributions ($\pi N$, $\rho N$, $\pi\Delta$).
+individual channel contributions ($\pi N$, $\rho N$, $\pi\Delta$) of
+Figs.~5, 6 and 37 of Ref.~\cite{TDIS15} (Figs.~\ref{fig:fig5}--\ref{fig:fig37}).
+
+Note that $\cos\phi_k>0$ for every $(y,k_T)$, so the recoil nucleon
+always goes forward and an upper angle of $90^\circ$ is the same as
+$180^\circ$.  For $x\geq0.05$ and $|\vec{k}|\leq 400$~MeV the
+$70^\circ$ upper cut is also practically inactive (effect $<0.5\%$),
+because $y\geq x$ keeps the recoil forward of $\approx 70^\circ$.
 
 % ============================================================
 \section{Input file reference}
@@ -336,9 +354,12 @@ accepted but ignored.  All keys are case-insensitive.
 \end{center}
 
 \textbf{Note:} \texttt{3Var\_theta.f} and \texttt{3Var\_x.f} hardcode
-$\theta_e = 35^{\circ}$.  The \texttt{f2\_pi\_sub} subroutine (kbin mode) was
-called with $\theta_e = 12^{\circ}$ in \texttt{f2\_pi\_ranges.c}.  Use 12$^{\circ}$
-for the kbin curves matching the published BoNuS figures.
+$\theta_e = 35^{\circ}$; $\theta_e$ only enters through $Q^2(x)$.
+The published TDIS figures~\cite{TDIS15} are reproduced with
+$\theta_e = 35^{\circ}$ for \emph{all} modes, including kbin
+(Sec.~\ref{sec:validation}).  The value $\theta_e = 12^{\circ}$ used when
+\texttt{f2\_pi\_sub} was called from \texttt{f2\_pi\_ranges.c} gives a lower
+$Q^2$ and tagged curves that are 3--10\% higher at $x\gtrsim0.15$.
 
 \subsection{Physics --- channel selection}
 
@@ -355,11 +376,20 @@ for the kbin curves matching the published BoNuS figures.
 \end{tabular}
 \end{center}
 
-\textbf{Charge exchange} (\textit{dis}=0): $n \to \pi^- + p$.
-Isospin factor $= 2$.  Used for the BoNuS $|\vec{k}|$-bin curves.
+\textbf{Charge exchange} (\textit{dis}=0): $n \to \pi^- + p$
+(or $p\to\pi^+ n$).  Isospin factor $= 2$.  Used for the
+$\pi N$, $\rho N$, $\pi\Delta$ comparisons (Figs.~6 and 37 of~\cite{TDIS15}).
 
 \textbf{Neutral} (\textit{dis}=1): $p \to \pi^0 + p$.
-Isospin factor $= 1$.  Used for Fig.~47.
+Isospin factor $= 1$.  Used for the proton-target curves
+(Figs.~5, 46, 47 of~\cite{TDIS15}).
+
+\textbf{Each run gives one charge state.}  The total pion-cloud
+contribution of a nucleon sums both charge states (isospin factors
+$1+2=3$).  Multiply a \emph{neutral} result by 3, or a
+\emph{charge-exchange} result by $3/2$, to obtain the total
+$F_2^{(\pi N)}(x)$ (the violet ``fully integrated'' curves of the
+published figures; see Sec.~\ref{sec:validation}).
 
 \subsection{Physics --- form factor}
 
@@ -392,8 +422,13 @@ Isospin factor $= 1$.  Used for Fig.~47.
 \end{tabular}
 \end{center}
 
-For the HSS exponential form factor (\texttt{exp\_s}), the recommended
-values are:
+For the $s$-dependent exponential form factor (\texttt{exp\_s}),
+$G_{\pi N}=\exp[(M^2-s_{\pi N})/\Lambda^2]$, the values constrained by
+inclusive $pp\to nX$ data~\cite{HSS96} (converted to this convention,
+see~\cite{TDIS15}) are $\Lambda_{\pi N}=\Lambda_{\rho N}=1.56\pm0.07$~GeV
+and $\Lambda_{\pi\Delta}=1.39\pm0.07$~GeV.
+The $\pi\Delta$ channel always uses \inikey{lambda\_delta};
+\inikey{lambda} has no effect on it.  Recommended values for $\Lambda_{\pi N}$:
 \begin{center}
 \begin{tabular}{ll}
 \toprule
@@ -436,7 +471,11 @@ $\Lambda = 1.48$~GeV & HSS $-1\sigma$ \\
 \end{tabular}
 \end{center}
 
+\subsection{x-scan settings}
 
+The x-scan integrates $\theta_h\in[\inikey{theta\_min},\inikey{theta\_max}]$
+and $|\vec{k}|\in[\inikey{k\_min},\inikey{k\_max}]$ (with \inikey{nk} steps)
+at each output $x$.
 
 \begin{center}
 \begin{tabular}{lll}
@@ -488,12 +527,11 @@ $\Lambda = 1.48$~GeV & HSS $-1\sigma$ \\
 \end{center}
 
 \textbf{Performance note:} \inikey{nkt=50000} matches the Fortran
-exactly but is slow.  Recommended values:
-\begin{itemize}
-  \item \inikey{nkt=1000}: quick checks ($\sim 5$--10\% accuracy)
-  \item \inikey{nkt=5000}: good accuracy ($< 1$\%)
-  \item \inikey{nkt=50000}: publication quality (matches Fortran)
-\end{itemize}
+exactly.  In v1.3 a kbin run with \inikey{nx=50}, \inikey{ny=100},
+\inikey{nkt=50000} takes $\approx1$~s on a laptop, so there is little
+reason to lower it.  With \inikey{nkt=5000} the result changes by
+$\lesssim0.2\%$, rising to $\sim1\%$ only next to the kinematic end point
+where $F_2^{(\pi N)}\to0$.
 
 \subsection{Output settings}
 
@@ -589,14 +627,20 @@ Sets \inikey{ny} and \inikey{nkt} together for the kbin scan:
 \begin{lstlisting}[style=iniStyle]
 precision = fast          # ny=20,  nkT=500   -- quick checks
 precision = normal        # ny=50,  nkT=2000  -- development
-precision = publication   # ny=100, nkT=50000 -- matches Fortran (default)
+precision = publication   # ny=100, nkT=50000 -- matches Fortran
 precision = custom        # use ny/nkT directly
 \end{lstlisting}
+With \inikey{precision = custom} (the default when \inikey{precision} is
+not given) the \inikey{ny}/\inikey{nkt} values of the input file, or the
+built-in defaults \inikey{ny=100}, \inikey{nkt=50000}, are used.
 
 \subsection{Inclusive mode shortcut}
 
-Removes all kinematic cuts (reproduces the fully inclusive $F_2^{(\pi N)}(x)$
-purple curve without manually setting four parameters):
+Removes all kinematic cuts, giving the fully inclusive
+$F_2^{(\pi N)}(x)$ \emph{of the selected charge state} without setting
+four parameters by hand.  Multiply by 3 (\texttt{neutral}) or $3/2$
+(\texttt{charge\_exchange}) to obtain the violet ``fully integrated''
+curve of the published figures, which sums both charge states:
 
 \begin{lstlisting}[style=iniStyle]
 inclusive_mode = true
@@ -665,107 +709,264 @@ See \texttt{include/pioncloud\_c.h} for full Fortran interface documentation.
 \textbf{Thread safety warning:} CTEQ6 uses Fortran \texttt{COMMON} blocks
 and is not thread-safe.  Do not call from multiple threads simultaneously.
 
+% ============================================================
+\section{Worked examples: the published TDIS figures}
+\label{sec:validation}
+% ============================================================
 
+The Fortran codes ported in \picloud{} were written by T.~Hobbs for the
+pion-cloud calculations of the JLab TDIS proposal PR12-15-006~\cite{TDIS15}
+(approved as E12-15-006; an earlier version is PR12-14-010~\cite{TDIS14}),
+and several of the same curves appear in Ref.~\cite{Hobbs15}.
+This section gives the input file for each published figure and overlays
+the \picloud{} v1.3 result on the original curves.
 
-\subsection{Fig.~47 left panel (theta scan, full acceptance)}
-
-\begin{lstlisting}[style=iniStyle]
-scan_mode   = theta
-output_name = Fig47_left
-contribution = pion
-dissociation = neutral      # p -> pi0 + p
-form_factor  = exp_s
-lambda       = 1.56
-beam_energy    = 11.0
-electron_angle = 35.0       # as in 3Var_theta.f
-theta_min = 0.0
-theta_max = 90.0
-nth       = 100
-n_x_integration = 100
-# defaults: x in [0, 0.6], k in [0, 500] MeV -- left panel
+\paragraph{How the comparison was made.}
+The proposal figures are vector graphics (\textsc{xmgrace}).  Each curve
+was extracted exactly from the PDF (no hand digitisation) by converting
+the page to SVG and calibrating on the axis frame and major tick marks.
+The extracted curves, the scripts and the input generator are in
+\texttt{docs/validation/} (see its \texttt{README.md}):
+\begin{lstlisting}[style=bashstyle]
+source /path/to/root/bin/thisroot.sh            # PyROOT + numpy needed
+docs/validation/run_compare.sh build/PionCloud /tmp/pc_validation
+# -> /tmp/pc_validation/plots/fig*.pdf, summary.txt (PionCloud/published ratios)
 \end{lstlisting}
+In every plot below, the \textbf{thick translucent} lines are the published
+curves and the \textbf{thin} lines of the same colour and style are
+\picloud{}.  The lower panel shows the ratio \picloud{}/published.
 
-\subsection{Fig.~47 right panel (theta scan, constrained acceptance)}
+\paragraph{Common settings.}
+All figures use $E=11$~GeV, $\theta_e=35^\circ$, GRV92 pion PDFs, CTEQ6M
+for $F_2^{p,n}$, the $s$-dependent exponential form factor
+(\inikey{form\_factor = exp\_s}) with $\Lambda=1.56$~GeV and
+$\Lambda_{\pi\Delta}=1.39$~GeV:
+\begin{lstlisting}[style=iniStyle]
+form_factor    = exp_s
+lambda         = 1.56      # pi-N and rho-N vertices (HSS central value)
+lambda_delta   = 1.39      # pi-Delta vertex (used automatically for pi_delta)
+beam_energy    = 11.0
+electron_angle = 35.0      # as in 3Var_x.f / 3Var_theta.f -- also for kbin
+\end{lstlisting}
+Ready-made inputs are in \texttt{input\_files/} (e.g.\
+\texttt{fig47\_proposal/}, \texttt{fig37\_proposal/}); the complete set
+used here is generated by \texttt{docs/validation/make\_runs.sh}.
+
+% ------------------------------------------------------------
+\subsection{Fig.~47: angular distribution (theta scan)}
+
+Fig.~47 of~\cite{TDIS15} shows $F_2^{(\pi p)}(\theta_{p'};\Delta x,\Delta|\vec k|)$
+for neutral exchange $p\to\pi^0p$ and $p\to\rho^0p$.
+Left panel: $\Delta x=[0,0.6]$, $\Delta|\vec k|=[0,500]$~MeV
+(the theta-scan defaults); right panel: $\Delta x=[0.05,0.6]$,
+$\Delta|\vec k|=[60,250]$~MeV.
 
 \begin{lstlisting}[style=iniStyle]
-scan_mode   = theta
-output_name = Fig47_right
-contribution = pion
-dissociation = neutral
-form_factor  = exp_s
-lambda       = 1.56
-beam_energy    = 11.0
-electron_angle = 35.0
+scan_mode    = theta
+contribution = pion          # rho for the blue dashed curve
+dissociation = neutral       # p -> pi0 p
 theta_min = 0.0
 theta_max = 90.0
-nth       = 100
-n_x_integration = 100
-x_min_th  = 0.05            # Delta_x = [0.05, 0.6]
+nth       = 90
+n_x_integration = 200
+nk        = 200
+# right panel only:
+x_min_th  = 0.05             # Delta_x = [0.05, 0.6]
 x_max_th  = 0.6
-k_min_th  = 0.060           # Delta_k = [60, 250] MeV
+k_min_th  = 0.060            # Delta_k = [60, 250] MeV
 k_max_th  = 0.250
 \end{lstlisting}
 
-\subsection{piN contribution with BoNuS acceptance (black curve)}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/fig47.pdf}
+\caption{Fig.~47 of~\cite{TDIS15} (thick) and \picloud{} theta scan (thin):
+$\pi^0p$ (red) and $\rho^0p$ (blue, dashed).  Agreement is $\approx1\%$
+over the whole angular range.}
+\label{fig:fig47}
+\end{figure}
+
+% ------------------------------------------------------------
+\subsection{Fig.~46: x dependence, full acceptance (x scan)}
+
+Fig.~46 of~\cite{TDIS15}: $F_2^{(Mp)}(x;\Delta|\vec k|,\Delta\theta_{p'})$
+for $p\to\pi^0p$ and $p\to\rho^0p$, integrated over
+$\Delta|\vec k|=[0,500]$~MeV and all angles.  This is the
+\texttt{3Var\_x.f} calculation:
 
 \begin{lstlisting}[style=iniStyle]
-scan_mode      = kbin
-output_name    = piN_channel
-contribution   = pion
-dissociation   = charge_exchange
-form_factor    = exp_s
-lambda         = 1.56
-beam_energy    = 11.0
-electron_angle = 12.0       # as used in f2_pi_ranges.c
-x_min = 0.055
+scan_mode    = x
+contribution = pion          # rho for the blue dashed curve
+dissociation = neutral
+x_min = 0.005
+x_max = 0.4
+nx    = 80
+theta_min = 0.0              # all angles
+theta_max = 180.0
+n_theta_integration = 200
+k_min = 0.0001               # Delta_k = [0, 500] MeV
+k_max = 0.5
+nk    = 200
+\end{lstlisting}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.62\textwidth]{figures/fig46.pdf}
+\caption{Fig.~46 of~\cite{TDIS15} (thick) and \picloud{} x scan (thin).}
+\label{fig:fig46}
+\end{figure}
+
+% ------------------------------------------------------------
+\subsection{Fig.~5: proton target, four $|\vec k|$ bins (kbin scan)}
+
+Fig.~5 of~\cite{TDIS15} (identical to Fig.~2, right, of~\cite{Hobbs15}):
+$p\to\pi^0p$ in the bins $\Delta|\vec k|=[60,100]$ (black),
+$[100,200]$ (red dashed), $[200,300]$ (green dash-dotted) and $[300,400]$~MeV
+(blue), compared with the total $F_2^{(\pi p)}(x)$ (violet dashed) and
+$F_2^p$ (orange).  The figure header says $\Delta\theta_{p'}=[30^\circ,180^\circ]$;
+using $30^\circ$--$70^\circ$ instead gives the same result to $<0.5\%$
+(Sec.~\ref{sec:kbin-notes}).
+
+\begin{lstlisting}[style=iniStyle]
+scan_mode    = kbin
+contribution = pion
+dissociation = neutral       # p -> pi0 p
+nucleon      = proton        # F2p for the orange curve / ratio
+x_min = 0.05
 x_max = 0.30
-nx    = 20
-k_min     = 0.060           # BoNuS full acceptance window
-k_max     = 0.250
-cosph_min = 0.342           # 30-70 degree cut
+nx    = 50
+k_min = 0.060                # one run per bin:
+k_max = 0.100                # 060-100, 100-200, 200-300, 300-400 MeV
+cosph_min = 0.342            # theta_p' < 70 deg (cos 70)
+cosph_max = 0.866            # theta_p' > 30 deg (cos 30)
+ny    = 100
+nkt   = 5000
+# violet curve: replace k_min/k_max/cosph_* by  inclusive_mode = true
+#               and multiply F2piK by 3 (sum of the two charge states)
+\end{lstlisting}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.62\textwidth]{figures/fig5.pdf}
+\caption{Fig.~5 of~\cite{TDIS15} (thick) and \picloud{} kbin scan (thin).
+The inclusive \picloud{} curve has been multiplied by 3.  The large ratio
+excursions sit at the kinematic end points, where the curves fall steeply to zero.}
+\label{fig:fig5}
+\end{figure}
+
+% ------------------------------------------------------------
+\subsection{Fig.~6: neutron, $\pi N$, $\rho N$, $\pi\Delta$ channels (kbin scan)}
+
+Fig.~6 of~\cite{TDIS15}: charge exchange ($n\to\pi^-p$, $\rho^-p$ and
+$\pi^0\Delta^0+\pi^-\Delta^+$) with $\Delta\theta_h=[30^\circ,180^\circ]$.
+The momentum window is not given in the caption; it is reproduced with
+$\Delta|\vec k|=[60,250]$~MeV, the full proposed RTPC acceptance.
+
+\begin{lstlisting}[style=iniStyle]
+scan_mode    = kbin
+contribution = pion          # black;  rho: red dashed;  pi_delta: green
+dissociation = charge_exchange
+nucleon      = neutron
+x_min = 0.05
+x_max = 0.20
+nx    = 50
+k_min = 0.060
+k_max = 0.250
+cosph_min = 0.0              # 30-180 deg (cos(phi_k) > 0 always)
+cosph_max = 0.866
+ny    = 100
+nkt   = 5000
+# violet curve: inclusive_mode = true, multiplied by 3/2
+\end{lstlisting}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.62\textwidth]{figures/fig6.pdf}
+\caption{Fig.~6 of~\cite{TDIS15} (thick) and \picloud{} (thin).
+The inclusive \picloud{} curve has been multiplied by $3/2$.}
+\label{fig:fig6}
+\end{figure}
+
+% ------------------------------------------------------------
+\subsection{Fig.~37: neutron, $\Delta|\vec k|=[250,400]$~MeV (kbin scan)}
+
+Fig.~37 of~\cite{TDIS15} (identical to Fig.~2, left, of~\cite{Hobbs15}):
+same channels as Fig.~6, but with $\Delta|\vec k|=[250,400]$~MeV and
+$\Delta\theta_{p}=[30^\circ,70^\circ]$.  These are the inputs in
+\texttt{input\_files/fig37\_proposal/}:
+
+\begin{lstlisting}[style=iniStyle]
+scan_mode    = kbin
+contribution = pion          # rho / pi_delta for the other channels
+dissociation = charge_exchange
+nucleon      = neutron
+x_min = 0.05
+x_max = 0.30
+nx    = 50
+k_min = 0.250
+k_max = 0.400
+cosph_min = 0.342
 cosph_max = 0.866
 ny    = 100
 nkt   = 5000
 \end{lstlisting}
 
-\subsection{Four k-bin curves (change k\_min/k\_max per run)}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.62\textwidth]{figures/fig37.pdf}
+\caption{Fig.~37 of~\cite{TDIS15} (thick) and \picloud{} (thin).
+The inclusive \picloud{} curve has been multiplied by $3/2$.  The
+projected data points of the original figure are not shown.}
+\label{fig:fig37}
+\end{figure}
 
-\begin{lstlisting}[style=iniStyle]
-# Run four times changing k_min and k_max:
-# Run 1: k_min=0.060, k_max=0.100  (red)
-# Run 2: k_min=0.100, k_max=0.200  (green)
-# Run 3: k_min=0.200, k_max=0.300  (blue)
-# Run 4: k_min=0.300, k_max=0.400  (yellow)
-scan_mode      = kbin
-contribution   = pion
-dissociation   = charge_exchange
-form_factor    = exp_s
-lambda         = 1.56
-beam_energy    = 11.0
-electron_angle = 12.0
-x_min = 0.055
-x_max = 0.33
-nx    = 20
-k_min = 0.060   # change per run
-k_max = 0.100   # change per run
-cosph_min = 0.342
-cosph_max = 0.866
-ny  = 100
-nkt = 5000
-\end{lstlisting}
+% ------------------------------------------------------------
+\subsection{Summary of the comparison}
+\label{sec:kbin-notes}
 
-\subsection{rho-N and pi-Delta contributions}
+\begin{center}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Figure} & \textbf{Curve} & \textbf{median dev.} & \textbf{max $|$dev.$|$ (bulk)} \\
+\midrule
+47 left / right & $\pi^0p$          & $+0.6\%$ / $+1.0\%$ & $2.4\%$ \\
+47 left / right & $\rho^0p$         & $+1.5\%$            & $3.4\%$ \\
+46              & $\pi^0p$ / $\rho^0p$ & $+0.8\%$ / $+1.7\%$ & $3.6\%$ / $4.1\%$ \\
+5               & $|\vec k|$ bins 100--400 MeV & $+0.2$--$0.5\%$ & $3.5\%$ \\
+6               & $\pi N$, $\rho N$, $\pi\Delta$ & $+0.7$--$1.6\%$ & $7\%$ \\
+37              & $\pi N$, $\rho N$, $\pi\Delta$ & $+0.3$--$0.6\%$ & $2.8\%$ \\
+5, 6, 37        & inclusive $\times$ isospin & $-0.1\%$ & $0.3\%$ \\
+5, 6, 37        & $F_2^p$, $F_2^n$ (CTEQ6M) & $+3.5$--$6.8\%$ & $7.5\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+``Bulk'' means points where the published curve is within a factor 100
+of its maximum; closer to the kinematic end points both curves fall
+steeply to zero and the ratio is not meaningful.  The largest bulk
+deviations (Fig.~6) occur at $x\approx0.18$, just before the end point.
 
-To reproduce the red ($\rho N$) and green ($\pi\Delta$) curves, use the
-same configuration as the piN example above but change:
-\begin{lstlisting}[style=iniStyle]
-# rho-N (red dashed):
-contribution = rho
-
-# pi-Delta (green dash-dot):
-contribution = pi_delta
-lambda       = 1.39    # use lambda_delta for pi-Delta
-\end{lstlisting}
+Lessons for reproducing the published curves:
+\begin{itemize}
+\item \textbf{Electron angle.}  Use $\theta_e=35^\circ$ in all modes.
+  With $12^\circ$ the tagged curves come out 3--11\% higher at
+  $x\gtrsim0.15$.
+\item \textbf{Charge states.}  One run is one charge state.  The
+  ``fully integrated'' violet curves are the sum over charge states:
+  $3\times$ neutral, or $\tfrac32\times$ charge exchange (agreement $0.1\%$).
+\item \textbf{$\pi\Delta$ cut-off.}  The $\pi\Delta$ channel uses
+  \inikey{lambda\_delta}.  Changing \inikey{lambda} does not affect it.
+\item \textbf{Angular window.}  $\cos\phi_k>0$ always, so
+  $[30^\circ,180^\circ]$ is entered as \inikey{cosph\_min = 0}.  For
+  $x\ge0.05$, $|\vec k|\le400$~MeV the $70^\circ$ cut changes the result
+  by $<0.5\%$.
+\item \textbf{$F_2^{p,n}$.}  The CTEQ6M $F_2$ used for the ratio lies
+  3--7\% above the orange curves of the proposal.  This affects only the
+  reference curves and the ratio, not $F_2^{(\pi N)}$; the PDF set or
+  order used for the published curves is not documented (open item).
+\item \textbf{Not reproduced here.}  Fig.~35 of~\cite{TDIS15} (ratios with
+  projected data, a ROOT raster image) and Fig.~45 (the $|\vec k|$
+  dependence; there is no $|\vec k|$-scan mode yet).
+\end{itemize}
 
 % ============================================================
 \section{Class and API reference}
@@ -1005,13 +1206,14 @@ for (auto &pt : res.xScan)
            pt.x, pt.Q2, pt.F2piK, pt.F2n, pt.ratio);
 \end{lstlisting}
 
-\textbf{Current limitations for generator use} (see TODO.md):
-\begin{itemize}
-  \item No single-point \code{eval(x, Q2)} method: full scan must be run.
-  \item No verbosity control: progress is printed to \code{stdout}.
-  \item CTEQ6 reads table files from the current working directory.
-  \item CTEQ6 is not thread-safe (Fortran \texttt{COMMON} blocks).
-\end{itemize}
+For event-by-event use, \code{Calculator::eval(x, Q2)} returns a single
+point silently, \code{p.verbose = false} suppresses all output, and
+\code{p.cteq6\_table\_dir} sets where the CTEQ6 tables are read from
+(see ``What's new in v1.3'').
+
+\textbf{Current limitation} (see \texttt{TODO.md}): CTEQ6 is not
+thread-safe (Fortran \texttt{COMMON} blocks); do not evaluate from
+several threads at once.
 
 % ============================================================
 \section{CLI reference}
@@ -1057,8 +1259,12 @@ PionCloud/
 |---- CMakeLists.txt
 |---- README.md
 |---- TODO.md
-|---- Fig47_left.in          # ready-to-use input: Fig.47 left panel
-|---- Fig47_right.in         # ready-to-use input: Fig.47 right panel
+|---- input_files/           # ready-to-use inputs for published figures
+|     |---- fig47_proposal/    # Fig.47 of PR12-15-006 (theta scan)
+|     |---- fig37_proposal/    # Fig.37 (piN, rhoN, piDelta, 250-400 MeV)
+|     |---- fig35_proposal/    # Fig.35 (50 MeV |k| bins, n and p)
+|     |---- fig2_hobbs/        # Fig.2 of arXiv:1411.2216
+|     `---- normal_proposal/   # piN, rhoN, piDelta, 60-250 MeV
 |---- CTEQ6/
 |     |---- Cteq6Pdf-2007.f    # Fortran PDF library (v6.52)
 |     |---- cteq6m.tbl         # iset=1 NLO MSbar (default)
@@ -1083,40 +1289,54 @@ PionCloud/
 |     |---- CMakeLists.txt
 |     `---- test_all.cc        # 153 tests, 0 failures
 `---- docs/
-    `---- PionCloud_manual.tex   # this document
+    |---- PionCloud_manual.tex   # this document
+    |---- figures/               # comparison plots used in this manual
+    `---- validation/            # extracted published curves + scripts
 \end{lstlisting}
 
 % ============================================================
 \section{Known issues and TODO}
 % ============================================================
 
-The complete list is maintained in \texttt{TODO.md}.
-Summary of high-priority items:
+The complete, current list is maintained in \texttt{TODO.md}.
+Main open items:
 
 \begin{enumerate}
-\item \textbf{Nucleon selector}: \inikey{nucleon = neutron|proton}
-  to choose between $F_2^n$ and $F_2^p$ in the ratio.
-  \code{F2proton()} already exists in \texttt{CTEQ6.hh}; only wiring
-  is needed.
+\item \textbf{Sum of channels}: a combined run giving
+  $\pi N+\rho N+\pi\Delta$ (and the sum over charge states).
 
-\item \textbf{GRV99 pion PDF}: add the 1999 parametrisation as
-  \inikey{grv\_version = 92|99}.
+\item \textbf{Thread safety}: CTEQ6 Fortran \texttt{COMMON} blocks.
 
-\item \textbf{Theta-scan ROOT names}: \texttt{g\_thetascan} etc.\
-  should use the \texttt{<channel>\_<mode>} prefix.
+\item \textbf{Automated regression tests} against the published curves
+  of Sec.~\ref{sec:validation} (x and theta scans in particular).
 
-\item \textbf{kbin \inikey{nkt} default is slow}: 50000 steps is
-  publication-quality but takes O(hours) for \inikey{nx=100}.
-  Use \inikey{nkt=5000} for development.
-
-\item \textbf{Generator interface}: single-point \code{eval()},
-  verbosity control, configurable CTEQ6 table path, and a C
-  \code{extern "C"} wrapper for Python/Fortran interoperability.
-
-\item \textbf{t-scan mode}: F$_2^{(\pi N)}$ vs Mandelstam $-t$,
+\item \textbf{$|\vec k|$-scan and t-scan modes}: $F_2^{(\pi N)}$ vs
+  $|\vec k|$ (Fig.~45 of~\cite{TDIS15}) and vs Mandelstam $-t$,
   binning the $(y, k_T)$ integrand by $t = -k_T^2 - m_N^2 y^2/(1-y)$.
+
+\item \textbf{$F_2^{p,n}$ normalisation}: CTEQ6M is 3--7\% above the
+  $F_2$ curves of the published figures (Sec.~\ref{sec:kbin-notes}).
 \end{enumerate}
 
 % ============================================================
+\begin{thebibliography}{9}
+% ============================================================
+\bibitem{TDIS15} A.~Camsonne \textit{et al.}, ``Measurement of Tagged
+  Deep Inelastic Scattering (TDIS)'', JLab proposal PR12-15-006 (PAC43,
+  2015), approved as E12-15-006;
+  \url{https://www.jlab.org/exp_prog/proposals/15/PR12-15-006.pdf}.
+\bibitem{TDIS14} A.~Camsonne \textit{et al.}, ``Measurement of Tagged
+  Deep Inelastic Scattering (TDIS)'', JLab proposal PR12-14-010 (PAC42,
+  2014); \url{https://www.jlab.org/exp_prog/proposals/14/PR12-14-010.pdf}.
+\bibitem{Hobbs15} T.~J.~Hobbs, ``Phenomenological implications of the
+  nucleon's meson cloud'', Few-Body Syst.\ \textbf{56}, 363 (2015),
+  arXiv:1411.2216 [hep-ph].
+\bibitem{HSS96} H.~Holtmann, A.~Szczurek and J.~Speth,
+  Nucl.\ Phys.\ A \textbf{596}, 631 (1996).
+\bibitem{GRV92} M.~Gl\"uck, E.~Reya and A.~Vogt, Z.\ Phys.\ C
+  \textbf{53}, 651 (1992).
+\bibitem{CTEQ6} J.~Pumplin \textit{et al.}, JHEP \textbf{0207}, 012 (2002).
+\end{thebibliography}
+
+% ============================================================
 \end{document}
-\end{lstlisting>
