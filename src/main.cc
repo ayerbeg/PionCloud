@@ -31,6 +31,7 @@
 #include "OutputWriter.hh"
 
 #include <iostream>
+#include <memory>
 #include <string>
 #include <cstring>
 #include <stdexcept>
@@ -83,7 +84,7 @@ static void printUsage(const char *prog)
 "  --out <basename>             Output file base name (default: PionCloud)\n"
 "\n"
 "Physics:\n"
-"  --flag  0|1|2        Contribution: 0=pi-N, 1=rho-N, 2=pi-Delta\n"
+"  --flag  0|1|2|3      Contribution: 0=pi-N, 1=rho-N, 2=pi-Delta, 3=rho-Delta\n"
 "  --dis   0|1          Dissociation: 0=charge exchange, 1=neutral\n"
 "  --typ   0..6         Form factor: 0=monopole,1=dipole,2=exp(s),3=cov.dip,\n"
 "                                    4=dip(s-ch),5=exp(t),6=Pauli-Villar\n"
@@ -92,7 +93,9 @@ static void printUsage(const char *prog)
 "  --E   <GeV>          Beam energy\n"
 "  --theta_e <deg>      Electron scattering angle\n"
 "  --nucleon n|p        Nucleon for F2 ratio: neutron (default) or proton\n"
-"  --grv 92|99          GRV pion PDF version (default: 92)\n"
+"  --grv 92|99          Pion PDF: 92 = GRV92 (default), 99 = GRS99\n"
+"  --strange            Include strange quarks in F2pi (default: off)\n"
+"  --quiet / --verbose  Suppress / show per-point progress output\n"
 "\n"
 "x-scan:\n"
 "  --xmin <val>         Minimum Bjorken-x\n"
@@ -130,8 +133,8 @@ struct CliOverrides {
     bool  has_out      = false; std::string outName;
     bool  has_flag     = false; int    flag    = 0;
     bool  has_dis      = false; int    dis     = 0;
-    bool  has_typ      = false; int    typ     = 6;
-    bool  has_L        = false; double L       = 1.33;
+    bool  has_typ      = false; int    typ     = 2;     // values used only if has_* is set
+    bool  has_L        = false; double L       = 1.56;
     bool  has_Ld       = false; double Ld      = 1.39;
     bool  has_E        = false; double E       = 11.0;
     bool  has_theta_e  = false; double theta_e = 35.0;
@@ -162,6 +165,7 @@ struct CliOverrides {
     bool  has_grv      = false; GRVVersion  grv_version = GRV_92;
     bool  has_precision= false; PrecisionPreset precision = PRECISION_CUSTOM;
     bool  has_inclusive= false;
+    bool  has_strange  = false;
 };
 
 static void applyOverrides(RunParams &p, const CliOverrides &o)
@@ -198,6 +202,14 @@ static void applyOverrides(RunParams &p, const CliOverrides &o)
     if (o.has_nkT)        p.nkT          = o.nkT;
     if (o.has_cosph_min)  p.cosph_min    = o.cosph_min;
     if (o.has_cosph_max)  p.cosph_max    = o.cosph_max;
+    // The following options were listed in --help up to v1.3 but never
+    // parsed ("Unknown option"); wired in v1.4.
+    if (o.has_verbose)    p.verbose        = o.verbose;
+    if (o.has_nucleon)    p.nucleon        = o.nucleon;
+    if (o.has_grv)        p.grv_version    = o.grv_version;
+    if (o.has_precision)  p.precision      = o.precision;
+    if (o.has_inclusive)  p.inclusive_mode = true;
+    if (o.has_strange)    p.pion_strange   = true;
 }
 
 // ----------------------------------------------------------
@@ -259,6 +271,35 @@ int main(int argc, char *argv[])
         else if (eq("--nkt"))      { cli.has_nkT      = true; cli.nkT       = nxtI(); }
         else if (eq("--cosph-min")){ cli.has_cosph_min= true; cli.cosph_min = nxtD(); }
         else if (eq("--cosph-max")){ cli.has_cosph_max= true; cli.cosph_max = nxtD(); }
+        // ---- options documented in --help but not parsed up to v1.3 ----
+        else if (eq("--xmin-th"))  { cli.has_xmin_th  = true; cli.xmin_th   = nxtD(); }
+        else if (eq("--xmax-th"))  { cli.has_xmax_th  = true; cli.xmax_th   = nxtD(); }
+        else if (eq("--kmin-th"))  { cli.has_kmin_th  = true; cli.kmin_th   = nxtD(); }
+        else if (eq("--kmax-th"))  { cli.has_kmax_th  = true; cli.kmax_th   = nxtD(); }
+        else if (eq("--verbose"))  { cli.has_verbose  = true; cli.verbose   = true;  }
+        else if (eq("--quiet"))    { cli.has_verbose  = true; cli.verbose   = false; }
+        else if (eq("--inclusive")){ cli.has_inclusive= true; }
+        else if (eq("--strange"))  { cli.has_strange  = true; }
+        else if (eq("--nucleon")) {
+            std::string v = nxt(); cli.has_nucleon = true;
+            if      (v == "n" || v == "neutron") cli.nucleon = NUCLEON_NEUTRON;
+            else if (v == "p" || v == "proton")  cli.nucleon = NUCLEON_PROTON;
+            else throw std::runtime_error("Unknown --nucleon: " + v);
+        }
+        else if (eq("--grv")) {
+            std::string v = nxt(); cli.has_grv = true;
+            if      (v == "92") cli.grv_version = GRV_92;
+            else if (v == "99") cli.grv_version = GRV_99;
+            else throw std::runtime_error("Unknown --grv: " + v);
+        }
+        else if (eq("--precision")) {
+            std::string v = nxt(); cli.has_precision = true;
+            if      (v == "fast")        cli.precision = PRECISION_FAST;
+            else if (v == "normal")      cli.precision = PRECISION_NORMAL;
+            else if (v == "publication") cli.precision = PRECISION_PUBLICATION;
+            else if (v == "custom")      cli.precision = PRECISION_CUSTOM;
+            else throw std::runtime_error("Unknown --precision: " + v);
+        }
         else {
             std::cerr << "Unknown option: " << argv[i] << "\n";
             printUsage(argv[0]); return 1;
@@ -325,6 +366,7 @@ int main(int argc, char *argv[])
         case FLAG_PION:      return "pi-N (0)";
         case FLAG_RHO:       return "rho-N (1)";
         case FLAG_PI_DELTA:  return "pi-Delta (2)";
+        case FLAG_RHO_DELTA: return "rho-Delta (3)";
         default:             return "unknown";
         }
     };
@@ -385,7 +427,17 @@ int main(int argc, char *argv[])
 "\n";
 
     // ---- run calculations ----
-    Calculator calc(params);
+    // The constructor can throw (v1.4): missing CTEQ6 table, or a channel /
+    // dissociation combination that is not implemented (Delta + neutral).
+    // Report it as a normal error instead of an uncaught exception.
+    std::unique_ptr<Calculator> calcPtr;
+    try {
+        calcPtr = std::make_unique<Calculator>(params);
+    } catch (const std::exception &e) {
+        std::cerr << "Fatal: " << e.what() << "\n";
+        return 1;
+    }
+    Calculator &calc = *calcPtr;
     ScanResults results;
 
     try {

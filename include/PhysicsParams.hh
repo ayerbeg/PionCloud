@@ -41,14 +41,23 @@ enum FormFactorType {
 //  Splitting-function / meson-baryon FLAG codes
 // ----------------------------------------------------------
 enum ContributionFlag {
-    FLAG_PION     = 0,   // pi-N  (J = 0+1/2)
-    FLAG_RHO      = 1,   // rho-N (J = 1+1/2)
-    FLAG_PI_DELTA = 2    // pi-Delta (J = 0+3/2)
+    FLAG_PION      = 0,   // pi-N      (J = 0+1/2)
+    FLAG_RHO       = 1,   // rho-N     (J = 1+1/2)
+    FLAG_PI_DELTA  = 2,   // pi-Delta  (J = 0+3/2)   uses Ld
+    FLAG_RHO_DELTA = 3    // rho-Delta (J = 1+3/2)   uses Ld   (selectable since v1.4;
+                          //   f_RhoDel existed in v1.3 but could not be chosen)
 };
 
 // ----------------------------------------------------------
 //  Dissociation channel codes
 // ----------------------------------------------------------
+// Meaning per channel (isospin factor applied in SplittingFunctions.hh):
+//   pi-N, rho-N : 0 -> n -> M^- p  (or p -> M^+ n), factor 2
+//                 1 -> N -> M^0 N,                   factor 1
+//   pi-Delta, rho-Delta : only 0 is implemented, meaning the SUM of the
+//                 charge states of the Fortran (factor 2/3 x coupling);
+//                 1 has zero coupling in the Fortran and is REJECTED since
+//                 v1.4 (it silently returned F2 = 0 before).
 enum DisChannel {
     DIS_CHARGE_EXCHANGE = 0,   // N -> pi^- + p  (charge exchange)
     DIS_NEUTRAL         = 1    // N -> pi^0 + N  (neutral)
@@ -99,11 +108,24 @@ struct RunParams {
     double theta_e  = 35.0;    // electron scattering angle [deg]
 
     // ---- lambda cut-offs ----
-    double L        = 1.33;    // renorm. cut-off for pi/rho-N vertex [GeV]
-    double Ld       = 1.39;    // renorm. cut-off for Delta vertex   [GeV]
+    // Defaults (v1.4): s-dependent exponential form factor with the HSS
+    // central values  Lambda_piN = Lambda_rhoN = 1.56 GeV,
+    // Lambda_piDelta = Lambda_rhoDelta = 1.39 GeV  (Holtmann, Szczurek, Speth,
+    // NPA 596 (1996) 631, in the exp[(M^2-s)/Lambda^2] convention of the TDIS
+    // proposal PR12-15-006 Eq. 14).  These reproduce the published TDIS figures.
+    //
+    // WHY CHANGED: v1.3 defaulted to Pauli-Villars with L = 1.33 GeV.  1.33 GeV
+    // is the best fit of the s-dependent EXPONENTIAL in McKenney et al.,
+    // PRD 93 (2016) 054011, Table I; the Pauli-Villars fit there is 0.27 GeV.
+    // The pairing (inherited from 3Var_x.f) matches no published fit, Ld = 1.39
+    // was already the HSS exp_s value, and the C interface default
+    // (pioncloud_init_default) already used exp_s / 1.56.  Set form_factor and
+    // lambda explicitly to get any other model.
+    double L        = 1.56;    // cut-off for pi/rho-N vertex      [GeV]
+    double Ld       = 1.39;    // cut-off for pi/rho-Delta vertex  [GeV]
 
     // ---- form factor & channel choices ----
-    FormFactorType  typ  = FF_PAULI_VILLAR;
+    FormFactorType  typ  = FF_EXP_S;
     ContributionFlag flag = FLAG_PION;
     DisChannel       dis  = DIS_CHARGE_EXCHANGE;
 
@@ -165,6 +187,12 @@ struct RunParams {
     //                   (valence x2, strange sea used as light sea) -- fixed v1.4
     GRVVersion  grv_version = GRV_92;
 
+    // ---- strange quarks in the pion structure function ----
+    // false (default, = Fortran): F2pi = 5/9 (xV + 2 xS)           (u, d only)
+    // true:                       F2pi += 2/9 x sbar                (adds s, sbar)
+    // GRV92 has an SU(3)-symmetric sea (sbar = S); GRS99 has its own sbar.
+    bool pion_strange = false;
+
     // ---- kbin precision preset ----
     // PRECISION_CUSTOM (default): use ny/nkT fields directly
     // PRECISION_FAST:             ny=20,  nkT=500
@@ -174,7 +202,11 @@ struct RunParams {
 
     // ---- inclusive mode shortcut ----
     // When true, overrides cosph_min=0, cosph_max=1, kmin=0.001, kmax=10.0
-    // Reproduces the fully inclusive F2^(piN)(x) curve (no acceptance cuts).
+    // Reproduces the fully inclusive F2^(piN)(x) curve of ONE charge state
+    // (x3 for neutral, x3/2 for charge exchange gives the total).
+    // "Inclusive" up to the |k| limits: recoils with |k| < 1 MeV or
+    // |k| > 10 GeV are still excluded -- negligible in practice.
+    // cosph >= 0 always holds (the recoil goes forward), so [0,1] is all angles.
     bool inclusive_mode = false;
 
     // ---- verbosity ----

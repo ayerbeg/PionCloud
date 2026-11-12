@@ -77,9 +77,12 @@ static void test_PhysicsParams()
     RunParams p;
     near(p.E,       11.0, 1e-12, "default E = 11 GeV");
     near(p.theta_e, 35.0, 1e-12, "default theta_e = 35 deg");
-    near(p.L,       1.33, 1e-12, "default L = 1.33 GeV");
-    near(p.Ld,      1.39, 1e-12, "default Ld = 1.39 GeV");
-    check(p.typ  == FF_PAULI_VILLAR,     "default form factor = Pauli-Villar");
+    // v1.4: default model = exp_s with HSS cut-offs (was Pauli-Villars + 1.33,
+    // a pairing that matches no published fit; see PhysicsParams.hh)
+    near(p.L,       1.56, 1e-12, "default L = 1.56 GeV (HSS exp_s)");
+    near(p.Ld,      1.39, 1e-12, "default Ld = 1.39 GeV (HSS exp_s)");
+    check(p.typ  == FF_EXP_S,            "default form factor = exp_s");
+    check(p.pion_strange == false,       "default pion_strange = false (Fortran)");
     check(p.flag == FLAG_PION,           "default contribution = pion");
     check(p.dis  == DIS_CHARGE_EXCHANGE, "default dis = charge exchange");
     check(p.scanMode == "all",           "default scanMode = all");
@@ -166,6 +169,19 @@ static void test_Kinematics()
             sum += simpsonWeight(i, n) * x * x;
         }
         near((h/3.0)*sum, 1.0/3.0, 1e-14, "Simpson ∫x² dx = 1/3 (n=10)");
+    }
+    // v1.4: odd number of intervals (Simpson + 3/8 tail) must still be exact
+    // for cubics; v1.3 silently returned a wrong integral for odd n.
+    for (int n : {1, 3, 5, 7, 101}) {
+        const double h = 1.0 / n;
+        double s0 = 0.0, s3 = 0.0;
+        for (int i = 0; i <= n; ++i) {
+            const double x = i * h, w = simpsonWeight(i, n);
+            s0 += w; s3 += w * x*x*x;
+        }
+        std::ostringstream nm; nm << " (n=" << n << ")";
+        near((h/3.0)*s0, 1.0, 1e-13, "quadrature ∫1 dx = 1, odd n" + nm.str());
+        if (n >= 3) near((h/3.0)*s3, 0.25, 1e-13, "quadrature ∫x³ dx = 1/4 (exact), odd n" + nm.str());
     }
 }
 
@@ -313,6 +329,39 @@ static void test_SplittingFunctions()
     {
         double val = fypiD(0.2, 0.1, Ld, typ, DIS_NEUTRAL);
         near(val, 0.0, 1e-15, "fypiD dis=1 = 0 (null coupling)");
+    }
+
+    // ---- v1.4: rho-Delta channel selectable; Delta + neutral rejected ----
+    {
+        RunParams p;
+        p.scanMode = "kbin"; p.outputMode = OUT_NONE; p.verbose = false;
+        p.xmin = 0.05; p.xmax = 0.15; p.nx = 2; p.ny = 20; p.nkT = 400;
+        p.kmin = 0.06; p.kmax = 0.4;
+        p.flag = FLAG_RHO_DELTA;
+        ScanResults r; Calculator(p).runKBinScan(r);
+        check(!r.xScan.empty() && r.xScan[0].F2piK > 0.0,
+              "rho-Delta (flag=3) selectable and gives F2 > 0");
+        double fpd = 0.0;
+        { RunParams q = p; q.flag = FLAG_PI_DELTA; ScanResults rq; Calculator(q).runKBinScan(rq); fpd = rq.xScan[0].F2piK; }
+        check(r.xScan[0].F2piK < fpd, "rho-Delta < pi-Delta at x=0.05 (heavier meson)");
+
+        for (ContributionFlag fl : {FLAG_PI_DELTA, FLAG_RHO_DELTA}) {
+            RunParams q = p; q.flag = fl; q.dis = DIS_NEUTRAL;
+            bool threw = false;
+            try { Calculator c(q); } catch (const std::invalid_argument &) { threw = true; }
+            check(threw, std::string("Calculator rejects ") +
+                  (fl == FLAG_PI_DELTA ? "pi-Delta" : "rho-Delta") + " + neutral (was silent F2=0)");
+            check(!InputReader::validate(q).empty(), "InputReader::validate flags Delta + neutral");
+        }
+    }
+    // ---- v1.4 input keys: contribution = rho_delta, pion_strange ----
+    {
+        const std::string f = "/tmp/pioncloud_test_v14keys.in";
+        { std::ofstream o(f); o << "contribution = rho_delta\npion_strange = true\n"; }
+        InputReader rd; RunParams q = rd.read(f);
+        check(q.flag == FLAG_RHO_DELTA, "input: contribution = rho_delta");
+        check(q.pion_strange,           "input: pion_strange = true");
+        std::remove(f.c_str());
     }
 
     // Form factor types: all should return positive values at valid kinematics

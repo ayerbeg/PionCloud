@@ -156,6 +156,7 @@ void InputReader::parseLine(const std::string &rawLine,
         if      (vl == "0" || vl == "pion"  || vl == "pi_n")       p.flag = FLAG_PION;
         else if (vl == "1" || vl == "rho"   || vl == "rho_n")      p.flag = FLAG_RHO;
         else if (vl == "2" || vl == "pi_delta" || vl == "pidelta")  p.flag = FLAG_PI_DELTA;
+        else if (vl == "3" || vl == "rho_delta" || vl == "rhodelta") p.flag = FLAG_RHO_DELTA;
         else warnings_.push_back({lineNo,
             "Unknown contribution value '" + val + "', keeping current setting"});
     }
@@ -230,6 +231,11 @@ void InputReader::parseLine(const std::string &rawLine,
         else if (vl == "99" || vl == "grv99") p.grv_version = GRV_99;
         else warnings_.push_back({lineNo,
             "Unknown grv_version '" + val + "', expected 92|99"});
+    }
+    // [strange quarks in F2pi]  (v1.4; default false = Fortran)
+    else if (key == "pion_strange" || key == "strange") {
+        std::string vl = toLower(val);
+        p.pion_strange = (vl == "true" || vl == "1" || vl == "yes");
     }
     // [kbin precision preset]
     else if (key == "precision") {
@@ -339,8 +345,11 @@ std::vector<ValidationError> InputReader::validate(const RunParams &p)
         err("alpha1/alpha2", "alpha1 must be < alpha2");
     if ((int)p.typ < 0 || (int)p.typ > 6)
         err("form_factor", "form_factor must be in [0,6]");
-    if ((int)p.flag < 0 || (int)p.flag > 2)
-        err("contribution", "contribution flag must be 0, 1, or 2");
+    if ((int)p.flag < 0 || (int)p.flag > 3)
+        err("contribution", "contribution flag must be 0 (pion), 1 (rho), 2 (pi_delta) or 3 (rho_delta)");
+    if ((p.flag == FLAG_PI_DELTA || p.flag == FLAG_RHO_DELTA) && p.dis == DIS_NEUTRAL)
+        err("dissociation", "pi_delta / rho_delta are implemented only for "
+            "dissociation = charge_exchange (sum of charge states); neutral would give F2 = 0");
     if ((int)p.dis < 0 || (int)p.dis > 1)
         err("dissociation", "dissociation channel must be 0 or 1");
     if (p.scanMode != "x" && p.scanMode != "theta" &&
@@ -425,7 +434,7 @@ void InputReader::writeTemplate(const std::string &filename,
 "# Form factor type (integer code or name):\n"
 "#   0 / monopole\n"
 "#   1 / dipole\n"
-"#   2 / exp_s        (s-dependent exponential, HSS convention)\n"
+"#   2 / exp_s        (s-dependent exponential exp[(M^2-s)/L^2]; DEFAULT)\n"
 "#   3 / cov_dipole   (covariant dipole)\n"
 "#   4 / dipole_sch   (dipole, s-channel Lambda exchange)\n"
 "#   5 / exp_t        (t-dependent exponential, PRD93,054011)\n"
@@ -436,7 +445,9 @@ void InputReader::writeTemplate(const std::string &filename,
 "# Contribution to include (integer code or name):\n"
 "#   0 / pion      -- pi-N     (J = 0 + 1/2)\n"
 "#   1 / rho       -- rho-N    (J = 1 + 1/2)\n"
-"#   2 / pi_delta  -- pi-Delta (J = 0 + 3/2)\n"
+"#   2 / pi_delta  -- pi-Delta (J = 0 + 3/2), uses lambda_delta\n"
+"#   3 / rho_delta -- rho-Delta (J = 1 + 3/2), uses lambda_delta\n"
+"#   (Delta channels: dissociation must be charge_exchange)\n"
 "contribution     = " << (int)d.flag << "\n"
 "# Dissociation channel:\n"
 "#   0 / charge_exchange  (e.g. N -> pi^- + p)\n"
@@ -444,13 +455,12 @@ void InputReader::writeTemplate(const std::string &filename,
 "dissociation     = " << (int)d.dis << "\n"
 "\n"
 "[Physics - Cutoff Parameters]\n"
-"# Renormalisation cut-off Lambda for pi/rho-N vertex [GeV]\n"
-"#   HSS cent.: 1.56  |  HSS+: 1.63  |  HSS-: 1.48\n"
-"#   s-dep exp (PRD93,054011): 1.33\n"
-"#   t-dep exp (PRD93,054011): 0.85\n"
-"#   Pauli-Villar: 0.27\n"
+"# Cut-off Lambda for pi/rho-N vertex [GeV].  It MUST match form_factor:\n"
+"#   exp_s : HSS cent. 1.56 (default) | HSS+ 1.63 | HSS- 1.48 | PRD93,054011: 1.33\n"
+"#   exp_t : 0.85 (PRD93,054011, E866 fit) ; 0.93 (with HERA LN)\n"
+"#   pauli_villar : 0.27 (PRD93,054011)\n"
 "lambda           = " << d.L << "\n"
-"# Renormalisation cut-off Lambda for Delta vertex [GeV]\n"
+"# Cut-off Lambda for pi/rho-Delta vertex [GeV] (exp_s HSS values)\n"
 "#   HSS cent.: 1.39  |  HSS+: 1.46  |  HSS-: 1.32\n"
 "lambda_delta     = " << d.Ld << "\n"
 "\n"
@@ -509,7 +519,13 @@ void InputReader::writeTemplate(const std::string &filename,
 "# Steps in the y integration (Fortran used 100)\n"
 "ny               = " << d.ny << "\n"
 "# Steps in the kT integration (Fortran used 50000; use 1000+ for accuracy)\n"
-"nkt              = " << d.nkT << "\n";
+"nkt              = " << d.nkT << "\n"
+"\n"
+"[Pion structure function]\n"
+"# Pion PDF set: 92 = GRV92 LO (default, = Fortran) | 99 = GRS99 LO\n"
+"grv_version      = " << (int)d.grv_version << "\n"
+"# Include strange quarks in F2pi (adds 2/9 x sbar; Fortran: false)\n"
+"pion_strange     = " << (d.pion_strange ? "true" : "false") << "\n";
 
     std::cout << "[InputReader] Template written to '" << filename << "'\n";
 }

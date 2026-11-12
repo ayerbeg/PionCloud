@@ -23,6 +23,8 @@
 #include <stdexcept>
 #include <iostream>
 #include <iomanip>
+#include <fstream>
+#include <string>
 #ifndef _WIN32
 #  include <unistd.h>   // chdir, getcwd
 #else
@@ -44,6 +46,37 @@ Calculator::Calculator(const RunParams &p) : p_(p)
     case PRECISION_CUSTOM:
     default:
         break;  // use ny/nkT as set by user
+    }
+
+    // ---- channel / charge-state consistency (v1.4) ----
+    // The Delta channels have zero coupling for dis = neutral in the
+    // Fortran (fypiD, f_RhoDel); v1.3 then returned F2 = 0 silently.
+    if ((p_.flag == FLAG_PI_DELTA || p_.flag == FLAG_RHO_DELTA) &&
+        p_.dis == DIS_NEUTRAL)
+        throw std::invalid_argument(
+            "Calculator: pi-Delta / rho-Delta are only implemented for "
+            "dissociation = charge_exchange (sum of charge states); "
+            "dissociation = neutral would give F2 = 0.");
+
+    // ---- regulator / cut-off plausibility (v1.4, warning only) ----
+    // Published cut-offs differ by a factor ~5 between regulators
+    // (McKenney et al. PRD 93 054011 Table I: s-exp 1.33, t-exp 0.85,
+    // Pauli-Villars 0.27 GeV; HSS s-exp 1.56 GeV).  A cut-off far from the
+    // range of the chosen regulator usually means a forgotten form_factor
+    // or lambda setting (as in the v1.3 default PV + 1.33 GeV).
+    {
+        const bool   isDelta = (p_.flag == FLAG_PI_DELTA || p_.flag == FLAG_RHO_DELTA);
+        const double lam     = isDelta ? p_.Ld : p_.L;   // the cut-off this channel uses
+        auto warn = [&](const char *ff, double lo, double hi) {
+                if (lam < lo || lam > hi)
+                    std::cerr << "[Calculator] WARNING: form factor " << ff
+                              << " with Lambda = " << lam << " GeV is outside the"
+                              << " published range [" << lo << ", " << hi
+                              << "] GeV for this regulator -- check form_factor/lambda.\n";
+        };
+        if (p_.typ == FF_PAULI_VILLAR) warn("pauli_villar", 0.15, 0.6);
+        if (p_.typ == FF_EXP_S)        warn("exp_s",        0.9,  2.0);
+        if (p_.typ == FF_EXP_T)        warn("exp_t",        0.5,  1.5);
     }
 
     // ---- inclusive mode: remove all kinematic cuts ----
@@ -69,6 +102,25 @@ Calculator::Calculator(const RunParams &p) : p_(p)
             if (chdir(p_.cteq6_table_dir.c_str()) != 0)
                 std::cerr << "[Calculator] WARNING: could not chdir to '"
                           << p_.cteq6_table_dir << "' -- CTEQ6 may not find tables.\n";
+        }
+        // v1.4: make sure the table is there BEFORE calling the Fortran.
+        // If SetCtq6 cannot open it, it executes a Fortran STOP, which
+        // terminates the whole host process with exit status 0 -- a silent
+        // "success".  This hid the failure of most unit tests in v1.3
+        // (ctest reported Passed) and would kill any program embedding
+        // the library.  Throwing here lets the caller handle it.
+        {
+            std::ifstream tbl("cteq6m.tbl");
+            if (!tbl.good()) {
+                std::string where = p_.cteq6_table_dir.empty()
+                                  ? std::string("the current working directory")
+                                  : "'" + p_.cteq6_table_dir + "'";
+                if (!p_.cteq6_table_dir.empty() && savedCwd[0] != '\0') chdir(savedCwd);
+                throw std::runtime_error(
+                    "Calculator: CTEQ6 table 'cteq6m.tbl' not found in " + where +
+                    ".  Run from the build directory, copy the CTEQ6/*.tbl files, or "
+                    "set cteq6_table_dir.");
+            }
         }
         CTEQ6::init(CTEQ6::CTEQ6M);
         if (!p_.cteq6_table_dir.empty() && savedCwd[0] != '\0')
@@ -104,26 +156,39 @@ double Calculator::integrand(double x, double Q2,
     if (Q2 <= 0.0)             return 0.0;
 
     double rho_PS   = phaseSpace(k, theta_h);
-    double f2pi_grv = (p_.grv_version == GRV_99)
-                    ? PionCloud::F2piGRV99(x / y, Q2)
-                    : PionCloud::F2piGRV  (x / y, Q2);
+    double f2pi_grv = f2pi(x / y, Q2);
+    double split    = splitting(y, kT);
 
-    double split = 0.0;
+    return rho_PS * split * f2pi_grv;
+}
+
+// ----------------------------------------------------------
+//  splitting -- f_MB(y, kT) of the selected channel.
+//  The ONLY place where the channel is dispatched; to add a new
+//  meson-baryon channel, add its function to SplittingFunctions.hh,
+//  a ContributionFlag value, and one case here.
+// ----------------------------------------------------------
+double Calculator::splitting(double y, double kT) const
+{
     switch (p_.flag) {
-    case FLAG_PION:
-        split = fypiN   (y, kT, p_.L,  p_.typ, p_.dis);
-        break;
-    case FLAG_RHO:
-        split = f_rhoN  (y, kT, p_.L,  p_.typ, p_.dis);
-        break;
-    case FLAG_PI_DELTA:
-        split = fypiD   (y, kT, p_.Ld, p_.typ, p_.dis);
-        break;
+    case FLAG_PION:      return fypiN   (y, kT, p_.L,  p_.typ, p_.dis);
+    case FLAG_RHO:       return f_rhoN  (y, kT, p_.L,  p_.typ, p_.dis);
+    case FLAG_PI_DELTA:  return fypiD   (y, kT, p_.Ld, p_.typ, p_.dis);
+    case FLAG_RHO_DELTA: return f_RhoDel(y, kT, p_.Ld, p_.typ, p_.dis);
     default:
         throw std::invalid_argument("Calculator: Unknown ContributionFlag");
     }
+}
 
-    return rho_PS * split * f2pi_grv;
+// ----------------------------------------------------------
+//  f2pi -- pion structure function at (x_pi, Q2).
+//  The ONLY place where the pion PDF set is dispatched.
+// ----------------------------------------------------------
+double Calculator::f2pi(double xpi, double Q2) const
+{
+    return (p_.grv_version == GRV_99)
+         ? PionCloud::F2piGRV99(xpi, Q2, p_.pion_strange)
+         : PionCloud::F2piGRV  (xpi, Q2, p_.pion_strange);
 }
 
 // ----------------------------------------------------------
@@ -373,23 +438,12 @@ double Calculator::eval(double x, double Q2) const
             if (km  < p_.kmin)      continue;
             if (km  > p_.kmax)      continue;
 
-            double split = 0.0;
-            switch (p_.flag) {
-            case FLAG_PION:      split = fypiN (y,kT,p_.L, p_.typ,p_.dis); break;
-            case FLAG_RHO:       split = f_rhoN(y,kT,p_.L, p_.typ,p_.dis); break;
-            case FLAG_PI_DELTA:  split = fypiD (y,kT,p_.Ld,p_.typ,p_.dis); break;
-            default: break;
-            }
-            fpi_intk += wkT * 2.0 * kT * split;
+            fpi_intk += wkT * 2.0 * kT * splitting(y, kT);
         }
         fpi_intk *= (kTstep / 3.0);
 
-        if (y > 0.0 && x / y < 1.0) {
-            double f2pi = (p_.grv_version == GRV_99)
-                        ? PionCloud::F2piGRV99(x / y, Q2)
-                        : PionCloud::F2piGRV  (x / y, Q2);
-            F2piK += wy * fpi_intk * f2pi;
-        }
+        if (y > 0.0 && x / y < 1.0)
+            F2piK += wy * fpi_intk * f2pi(x / y, Q2);
     }
     return F2piK * (ystep / 3.0);
 }
@@ -490,24 +544,13 @@ void Calculator::runKBinScan(ScanResults &out) const
                 if (km  < p_.kmin)      continue;
                 if (km  > p_.kmax)      continue;
 
-                double split = 0.0;
-                switch (p_.flag) {
-                case FLAG_PION:      split = fypiN (y,kT,p_.L, p_.typ,p_.dis); break;
-                case FLAG_RHO:       split = f_rhoN(y,kT,p_.L, p_.typ,p_.dis); break;
-                case FLAG_PI_DELTA:  split = fypiD (y,kT,p_.Ld,p_.typ,p_.dis); break;
-                default: break;
-                }
-                fpi_intk += wkT * 2.0 * kT * split;
+                fpi_intk += wkT * 2.0 * kT * splitting(y, kT);
             }
             fpi_intk *= (kTstep / 3.0);
 
-            // GRV version selected by grv_version field
-            if (y > 0.0 && x / y < 1.0 && Q2 > 0.0) {
-                double f2pi = (p_.grv_version == GRV_99)
-                            ? PionCloud::F2piGRV99(x / y, Q2)
-                            : PionCloud::F2piGRV  (x / y, Q2);
-                F2piK += wy * fpi_intk * f2pi;
-            }
+            // pion structure function at x_pi = x/y (set chosen in f2pi())
+            if (y > 0.0 && x / y < 1.0 && Q2 > 0.0)
+                F2piK += wy * fpi_intk * f2pi(x / y, Q2);
         }
         F2piK *= (ystep / 3.0);
 

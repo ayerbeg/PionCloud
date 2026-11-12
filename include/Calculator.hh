@@ -63,6 +63,14 @@ public:
 private:
     RunParams p_;
 
+    // ---- physics ingredients (one place each; v1.4) ----
+    // Meson-baryon splitting function f_MB(y, kT) of the selected channel
+    // (p_.flag), with the cut-off that channel uses (L or Ld).
+    double splitting(double y, double kT) const;
+    // Pion structure function F2pi(x_pi, Q2) of the selected PDF set
+    // (p_.grv_version), with/without strange quarks (p_.pion_strange).
+    double f2pi(double xpi, double Q2) const;
+
     // (theta_h, k) integrand for runXScan / runThetaScan
     double integrand(double x, double Q2,
                      double theta_h, double k) const;

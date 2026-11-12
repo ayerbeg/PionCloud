@@ -64,10 +64,10 @@ extern "C" {
 typedef struct {
     double E;             /* beam energy [GeV]          default: 11.0  */
     double theta_e;       /* electron angle [deg]        default: 35.0  */
-    double L;             /* Lambda pi/rho-N [GeV]       default: 1.33  */
+    double L;             /* Lambda pi/rho-N [GeV]       default: 1.56  */
     double Ld;            /* Lambda Delta [GeV]          default: 1.39  */
-    int    flag;          /* 0=piN, 1=rhoN, 2=piDelta    default: 0     */
-    int    typ;           /* form factor 0..6            default: 6     */
+    int    flag;          /* 0=piN,1=rhoN,2=piDelta,3=rhoDelta  def: 0  */
+    int    typ;           /* form factor 0..6            default: 2 (exp_s) */
     int    dis;           /* 0=charge_exch, 1=neutral    default: 0     */
     int    nucleon;       /* 0=neutron, 1=proton          default: 0     */
     int    grv_version;   /* 92 or 99                    default: 92    */

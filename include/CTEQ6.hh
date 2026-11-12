@@ -108,7 +108,10 @@ inline void init(Set set = CTEQ6M)
 
 // ----------------------------------------------------------
 //  xfx()
-//  Returns x * f(x, Q) for the requested parton.
+//  Returns the parton density f(x, Q) for the requested parton
+//  (NOT x*f: Ctq6Pdf "returns the parton distribution", see
+//  Cteq6Pdf-2007.f header).  The historical name xfx is kept; the
+//  F2 functions below multiply by x themselves.  [comment fixed v1.4]
 //  x        -- Bjorken-x          (valid range: ~1e-6 to 1)
 //  Q        -- factorisation scale [GeV]  (valid range: >1.3 GeV)
 //  iparton  -- parton code (see table above)

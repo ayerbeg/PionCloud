@@ -48,6 +48,7 @@ static std::string flagName(ContributionFlag f) {
     case FLAG_PION:      return "pi-N (flag=0)";
     case FLAG_RHO:       return "rho-N (flag=1)";
     case FLAG_PI_DELTA:  return "pi-Delta (flag=2)";
+    case FLAG_RHO_DELTA: return "rho-Delta (flag=3)";
     default:             return "Unknown";
     }
 }
@@ -79,6 +80,7 @@ static std::string channelTag(ContributionFlag flag, DisChannel dis) {
     case FLAG_PION:      ch = "piN";      break;
     case FLAG_RHO:       ch = "rhoN";     break;
     case FLAG_PI_DELTA:  ch = "piDelta";  break;
+    case FLAG_RHO_DELTA: ch = "rhoDelta"; break;
     default:             ch = "unknown";  break;
     }
     if (dis == DIS_NEUTRAL) ch += "_neutral";
@@ -92,6 +94,7 @@ static std::string channelLabel(ContributionFlag flag, DisChannel dis) {
     case FLAG_PION:      ch = "#piN";       break;
     case FLAG_RHO:       ch = "#rhoN";      break;
     case FLAG_PI_DELTA:  ch = "#pi#Delta";  break;
+    case FLAG_RHO_DELTA: ch = "#rho#Delta"; break;
     default:             ch = "unknown";    break;
     }
     if (dis == DIS_NEUTRAL) ch += "^{0}";

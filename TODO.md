@@ -5,6 +5,41 @@
 # Status:   open / in-progress / done
 # ============================================================
 
+## FINDINGS OF THE 2026-11-12 REVIEW  (details: analyses/code_review/REVIEW.md on the laptop)
+# --------------------------------------------------------
+
+[HIGH] [done v1.4]  GRV99 DOUBLE-COUNTS THE PION VALENCE
+  GRV99 (GRS99) xV is the total valence u_v+dbar_v (int V dx = 1.99),
+  GRV92 xV is one flavour (int V dx = 0.99); both enter 5/9(xV+2xS), so
+  grv_version=99 gives F2piN x2 (+107% on Fig.37).  Use xV/2 for GRV99 and
+  check the sea normalisation vs EPJ C10 (1999) 313.  In f2_pi_sub.f90 the
+  GRV99 call was commented out (never validated).  Add a sum-rule test.
+  DONE: GRS99 Appendix A implemented (also: strange sea was used as light
+  sea; sign of 0.009 s^2).  Sum-rule tests added.  See CHANGELOG.md.
+
+[MEDIUM] [done v1.4]  DEFAULT FORM FACTOR: PAULI-VILLARS WITH L=1.33
+  Confirmed with PRD 93 054011 Table I: 1.33 = s-exp fit, PV fit = 0.27.
+  Default now exp_s / 1.56 (HSS); old default gave F2 x1.6-1.9.  PV
+  implementation = their Eq. (9) (correct).  Range warning added.
+
+[MEDIUM] [done v1.4]  DELTA CHANNELS RETURN 0 FOR dissociation=neutral (silently)
+  Now rejected by InputReader::validate and Calculator.
+[LOW] [open]  EXPLICIT DELTA CHARGE STATES (p/n target x final state with
+  Clebsch-Gordan factors) instead of the Fortran's summed factor 2/3.
+
+[LOW] [done v1.4]  rho-Delta (f_RhoDel) IMPLEMENTED BUT NOT SELECTABLE  -> flag 3
+[LOW] [done v1.4]  ODD SIMPSON STEP COUNTS -> Simpson + 3/8 tail, exact for any n
+[HIGH] [done v1.4]  CTEST FALSE PASS: Fortran STOP (exit 0) on missing table
+  after ~80 tests; now WORKING_DIRECTORY + PASS_REGULAR_EXPRESSION, and the
+  Calculator throws before calling SetCtq6.  197 tests really run.
+[MEDIUM] [done v1.4]  9 CLI OPTIONS IN --help WERE NEVER PARSED (--grv,
+  --nucleon, --precision, --inclusive, --verbose, --x/kmin/max-th)
+[LOW] [open]  KBIN: ANALYTIC kT LIMITS + GAUSS QUADRATURE INSTEAD OF
+              kT in [0,10] GeV WITH continue-CUTS (accuracy, speed)
+[LOW] [open]  ARCHITECTURE: SplittingFunction / Regulator / MesonSF /
+              Region interfaces + registry; LHAPDF backend; one kernel
+              for all scan modes (see review Part 5)
+
 ## PHYSICS OUTPUT
 # --------------------------------------------------------
 
@@ -92,6 +127,8 @@
 [MEDIUM] [done]  MISSING CLI FLAGS FOR KBIN IN HELP TEXT
   --ny, --nkt, --cosph-min, --cosph-max, --precision, --inclusive,
   --verbose, --nucleon, --grv all listed in printUsage().
+  NOTE (v1.4): v1.3 only LISTED them; --precision, --inclusive, --verbose,
+  --nucleon, --grv were not parsed.  Implemented in v1.4.
 
 [LOW] [open]  TEMPLATE INPUT FILE DOES NOT INCLUDE KBIN EXAMPLE
   --write-template generates the [kbin-Scan Settings] section with
@@ -212,6 +249,6 @@
 # ============================================================
 # END OF TODO LIST
 # Last updated: November 2026
-# Version: v1.3
-# Tests: 150 passed, 0 failed
+# Version: v1.4 (in progress)
+# Tests: 197 passed, 0 failed (v1.4; all now actually executed -- see CHANGELOG)
 # ============================================================
