@@ -5,6 +5,14 @@
 # Status:   open / in-progress / done
 # ============================================================
 
+## ROADMAP (2026-11-12): docs/PionCloud_roadmap.pdf
+# --------------------------------------------------------
+# Priority: 1 chiral-EFT piN/piDelta SplittingModels (NEXT; formulas in
+# docs/notes/piDelta_check.cc) | 2 JAM/xFitter pion PDFs via table reader
+# + target-mass corrections | 3 t-scan, x_pi, cross sections/rates |
+# 4 HERA leading-neutron validation test | 5 kaon cloud (nonlocal SU(3)
+# EFT) + kaon PDFs | 6 deuteron (TDIS-n), absorption, off-shell.
+
 ## FINDINGS OF THE 2026-11-12 REVIEW  (details: analyses/code_review/REVIEW.md on the laptop)
 # --------------------------------------------------------
 

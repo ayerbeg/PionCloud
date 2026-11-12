@@ -1,0 +1,182 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[varqu,varl,scaled=0.95]{zi4}
+\usepackage[margin=2.3cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\definecolor{titleblue}{rgb}{0.1,0.2,0.5}
+\hypersetup{colorlinks=true,linkcolor=titleblue,urlcolor=titleblue,citecolor=titleblue,
+  pdftitle={PionCloud development roadmap}}
+\newcommand{\picloud}{PionCloud}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\verify}{\textsuperscript{\,[to verify]}}
+\setlist{itemsep=2pt,topsep=3pt}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\title{\color{titleblue}\picloud{} development roadmap\\[2pt]
+\large models, analyses and publications that can extend the calculator}
+\author{PionCloud maintainers (TDIS)}
+\date{12 November 2026 \quad (after v1.4)}
+
+\begin{document}
+\maketitle
+
+\noindent \picloud{} computes tagged structure functions as
+\begin{equation}
+F_2^{(MB)}(x;\text{cuts})=\int_{\text{region}}\! dy\,dk_T^2\;
+\underbrace{f_{MB}(y,k_T)}_{\text{splitting}}\;
+\underbrace{F_2^{M}(x/y,Q^2)}_{\text{meson SF}} ,
+\end{equation}
+and since v1.4 the two physics ingredients are interfaces
+(\code{SplittingModel}, \code{PionSFModel} in \code{include/Models.hh}).
+Most items below are therefore \emph{new classes}, not changes to the
+integration code.  References marked \verify{} were identified but not yet
+read in full.
+
+\section*{Priority list}
+\begin{center}
+\small
+\begin{tabular}{L{0.3cm}L{5.6cm}L{2.3cm}L{1.3cm}L{3.4cm}}
+\toprule
+ & item & where in code & effort & needs \\
+\midrule
+1 & Chiral-EFT on-shell $\pi N$, $\pi\Delta$ splitting functions & \code{SplittingModel} & small & --- (formulas in \code{docs/notes/piDelta\_check.cc}) \\
+2 & Modern pion PDFs (JAM, xFitter) + target-mass corrections & \code{PionSFModel} & medium & table reader (or LHAPDF: on hold) \\
+3 & $t$-scan, $x_\pi$ output; cross sections and rates & scan modes, output & medium & $R=\sigma_L/\sigma_T$, luminosity, acceptance \\
+4 & HERA leading-neutron validation test & \code{tests/} & medium & H1/ZEUS tables \\
+5 & Kaon cloud ($K\Lambda$, $K\Sigma$, $K\Sigma^*$) + kaon PDFs & both interfaces & large & nonlocal SU(3) EFT formulas \\
+6 & Deuteron target (TDIS-n); absorption and off-shell systematics & new module & large & spectator-tagging theory \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Meson structure function (\code{PionSFModel})}
+
+\paragraph{Why.} GRV92 (1992, LO) and GRS99 are the only sets.  The pion PDFs
+have since been determined in global fits, including the Sullivan-process
+data that TDIS itself will extend.  The corrected GRS99 already differs from
+GRV92 by 5--17\% on the TDIS tagged curves: the PDF choice is a real model
+uncertainty of any $F_2^\pi$ extraction.
+
+\paragraph{Sources.}
+\begin{itemize}
+\item JAM: P.~C.~Barry \textit{et al.}, PRL \textbf{121}, 152001 (2018)
+  (Drell--Yan + HERA leading neutron);
+  P.~C.~Barry \textit{et al.}, PRL \textbf{127}, 232001 (2021),
+  arXiv:2108.05822 (threshold resummation, large-$x$ behaviour
+  $(1-x)^1$ vs.\ $(1-x)^2$);
+  N.~Y.~Cao \textit{et al.}, PRD \textbf{103}, 114014 (2021)
+  ($q_T$-dependent Drell--Yan);
+  simultaneous pion+kaon fit with lattice-QCD moments, PRD (2025),
+  doi:10.1103/ny6w-1n19 (kaon $\bar u$ large-$x$ exponent 1.6 vs.\ 1.16 for
+  the pion).
+\item xFitter pion PDFs: I.~Novikov \textit{et al.}, PRD \textbf{102}, 014040 (2020).
+\item Continuum Schwinger-function (DSE) pion and kaon PDFs: Z.-F.~Cui, C.~D.~Roberts
+  \textit{et al.}, 2020--2022\verify{} (parameter-free predictions; contrasting
+  model).
+\end{itemize}
+
+\paragraph{Implementation.}
+(a) \code{TablePionSF}: read published $x f(x,Q^2)$ grids (LHAPDF \code{.dat}
+format is plain text) and interpolate in $(\log x,\log Q^2)$; no external
+library.  Use replicas/eigensets for a PDF band.
+(b) LHAPDF backend later (on hold).
+(c) Target-mass corrections and NLO: at $Q^2\approx1$--3 GeV$^2$ and
+$x_\pi\lesssim0.8$ these are not small; review: I.~Schienbein \textit{et al.},
+J.~Phys.~G \textbf{35}, 053101 (2008).  Implement as an option of the
+\code{PionSFModel} (the LO relation $F_2=\sum e_q^2x(q+\bar q)$ stays the
+Fortran-compatible default).
+\paragraph{Test.} Sum rules (as for GRS99); reproduce published curves of the
+JAM pion $F_2$ at one $Q^2$.
+
+\section{Splitting functions (\code{SplittingModel})}
+
+\paragraph{1. Chiral-EFT on-shell forms} (J.~R.~McKenney \textit{et al.},
+PRD \textbf{93}, 054011 (2016), Eqs.~2 and 5).  The $\pi\Delta$ integrand is
+already implemented and checked ($\langle n\rangle_{\pi\Delta}=0.058$ vs.\ 0.06
+published; \code{docs/notes/piDelta\_normalisation.pdf}).  Adding
+\code{PiN\_ChiralEFT} and \code{PiDelta\_ChiralEFT} gives a second model
+alongside the Hobbs/HSS (Sullivan-form) one.  \emph{Caveat:} the cut-offs
+must be those fitted with these forms (their Table~I), not HSS values.
+\emph{Test:} $\langle n\rangle$ of Table~I for all regulators.
+
+\paragraph{2. Nonlocal chiral SU(3) effective theory}
+(Y.~Salamu, C.-R.~Ji, W.~Melnitchouk, A.~W.~Thomas, P.~Wang):
+PRD \textbf{99}, 014041 (2019), arXiv:1806.07551 (splitting functions);
+PRD \textbf{100}, 094026 (2019) (flavour asymmetries);
+review arXiv:2509.25657 (2025).  Octet and decuplet intermediate states
+($\pi N$, $\pi\Delta$, $K\Lambda$, $K\Sigma$, $K\Sigma^*$) with on-shell,
+off-shell, $\delta$-function and nonlocal terms.  This is the natural source
+of the \textbf{kaon cloud} for the kaon TDIS run (E12-15-006A, $\Lambda$/$\Sigma$
+tagging) and the current standard for the $\bar d-\bar u$ connection.
+\emph{Work:} new channels (masses, SU(3) couplings), kaon structure function
+(item 1 sources), $\Lambda\to p\pi^-$ tagging kinematics.
+
+\paragraph{3. Regge exchange and absorption.}  Bishari-type Reggeized pion
+(McKenney \textit{et al.}, Eq.~13); Reggeized exchange with absorptive
+(rescattering) corrections by Kopeliovich \textit{et al.}\verify{}.
+Absorption reduces the tagged rate; its size at JLab energies should be
+quantified as a systematic.
+
+\paragraph{4. Off-shell pion structure.}  DSE studies find the meson behaves
+as on-shell up to $|t|\approx0.6$~GeV$^2$ (pion) and 0.9~GeV$^2$ (kaon)
+(A.~C.~Aguilar \textit{et al.}, EPJA \textbf{55}, 190 (2019),
+arXiv:1907.08218, and references therein).  Implement as a $t$-dependent
+validity warning or an optional off-shell modification factor.
+
+\section{Observables and kinematics}
+\begin{itemize}
+\item \textbf{$t$-scan and $x_\pi$ output}: $F_2$ in bins of
+  $t=-(k_T^2+y^2M^2)/(1-y)$ at fixed $x$ (proposal PR12-15-006 Fig.~36), and
+  $x_\pi=x/y$.  The kbin kernel (\code{kbinF2Exact}) already integrates in
+  $(y,u=k_T^2)$; $t$ bins are a change of the integration region.
+\item \textbf{Cross sections and rates}: $d\sigma/dx\,dQ^2$ from $F_2$ and
+  $R=\sigma_L/\sigma_T$, times luminosity, acceptance (mTPC, SBS) and beam
+  time $\Rightarrow$ counts per $(x,|\vec k|,t)$ bin; this is what the TDIS
+  projections need.  Generator interface: \code{eval()} already exists.
+\item \textbf{$|\vec k|$-scan} (proposal Fig.~45).
+\item \textbf{Nucleon reference $F_2$}: replace CTEQ6 (2002) by CJ15
+  (A.~Accardi \textit{et al.}, PRD \textbf{93}, 114017 (2016)), which treats
+  large $x$ and the neutron/deuteron carefully; may also explain the 3--7\%
+  offset of the proposal's $F_2^{p,n}$ curves.
+\item \textbf{Deuteron target (TDIS-n)}: Fermi motion, final-state
+  interactions, nucleon off-shellness in spectator-tagged DIS
+  (W.~Cosyn and C.~Weiss; M.~Strikman and C.~Weiss)\verify{}.
+\end{itemize}
+
+\section{Validation and the wider landscape}
+\begin{itemize}
+\item \textbf{HERA leading neutrons} (H1, EPJC \textbf{68}, 381 (2010); ZEUS):
+  McKenney \textit{et al.}\ fit them with a $t$-exponential, $\Lambda=0.927$
+  GeV.  A second ``published-curve'' ctest, like \code{PionCloudValidation}.
+  Recent benchmark: \emph{Leading-neutron electroproduction at HERA and the
+  EIC: Sullivan process, target fragmentation, and pion PDFs},
+  arXiv:2609.03368 (2026)\verify{}: Sullivan dominance mainly for
+  $x_L\gtrsim0.6$, JAM21 replicas with five flux regulators.
+\item \textbf{EIC / EicC}: Feasibility study of pion and kaon structure via
+  the Sullivan process at EicC, arXiv:2512.01720 (projected statistical
+  uncertainties $<5\%$ pion, $<8\%$ kaon); kaon structure at EicC,
+  Chin.\ Phys.\ C (2022); ECCE detector study, arXiv:2208.14575;
+  Aguilar \textit{et al.}\ (2019) above.  Small-$x$ kinematics and
+  leading-neutron variables ($x_L$, $p_T$) would make \picloud{} usable as the
+  model back-end of these studies.
+\end{itemize}
+
+\section{Start-here checklist for the next session}
+\begin{enumerate}
+\item \code{git fetch}; work from branch \code{v1.4-improvements} (not yet
+  merged into \code{main}; decide whether to open the PR first).
+\item Build, \code{ctest} (2 tests: 216 unit + 28 validation checks must pass).
+\item Item~1: add \code{PiN\_ChiralEFT} / \code{PiDelta\_ChiralEFT} as
+  \code{SplittingModel}s (formulas from \code{docs/notes/piDelta\_check.cc}),
+  register them (\code{splitting\_model = piN\_chiralEFT}), test
+  $\langle n\rangle$ against McKenney Table~I, document in \code{CHANGELOG.md}.
+\item Follow \code{CONTRIBUTING.md}: bit-identical defaults, or a reference,
+  a measured effect and a failing-then-passing test.
+\end{enumerate}
+
+\end{document}
