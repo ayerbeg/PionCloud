@@ -62,7 +62,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \rhead{\textcolor{gray}{\small PionCloud Manual}}
-\lhead{\textcolor{gray}{\small v1.3}}
+\lhead{\textcolor{gray}{\small v1.4}}
 \cfoot{\thepage}
 
 % ---- section formatting ----
@@ -95,7 +95,7 @@
 {\Huge\bfseries\color{titleblue} PionCloud}\\[0.5em]
 {\Large Pion Cloud Model Structure Function Calculator}\\[2em]
 {\large C++ port of the Hobbs--Melnitchouk Fortran pion-cloud suite}\\[1em]
-{\large User Manual --- Version 1.3}\\[3em]
+{\large User Manual --- Version 1.4}\\[3em]
 
 \begin{abstract}
 \noindent
@@ -111,7 +111,7 @@ The code was developed as a framework for BoNuS/TDIS analysis at JLab.
 \end{abstract}
 
 \vfill
-{\small Last updated: November 2026}
+{\small Last updated: November 2026 (v1.4)}
 \end{titlepage}
 
 \tableofcontents
@@ -364,12 +364,12 @@ $Q^2$ and tagged curves that are 3--10\% higher at $x\gtrsim0.15$.
 \subsection{Physics --- channel selection}
 
 \begin{center}
-\begin{tabular}{lll}
+\begin{tabular}{llp{7.2cm}}
 \toprule
 \textbf{Key} & \textbf{Default} & \textbf{Description} \\
 \midrule
 \inikey{contribution} & \texttt{pion}
-  & Meson-baryon channel: \texttt{pion} (0), \texttt{rho} (1), \texttt{pi\_delta} (2) \\
+  & Channel: \texttt{pion} (0), \texttt{rho} (1), \texttt{pi\_delta} (2), \texttt{rho\_delta} (3, v1.4) \\
 \inikey{dissociation}  & \texttt{charge\_exchange}
   & Charge config: \texttt{charge\_exchange} (0), \texttt{neutral} (1) \\
 \bottomrule
@@ -400,11 +400,11 @@ published figures; see Sec.~\ref{sec:validation}).
 \midrule
 0 & \texttt{monopole}    & $(L^2+m_N^2)/(L^2+s_{\pi N})$ \\
 1 & \texttt{dipole}      & monopole squared \\
-2 & \texttt{exp\_s}      & $\exp[(m_N^2-s_{\pi N})/L^2]$; HSS default \\
+2 & \texttt{exp\_s}      & $\exp[(m_N^2-s_{\pi N})/L^2]$; \textbf{default} (v1.4) \\
 3 & \texttt{cov\_dipole} & covariant dipole in $t$ \\
 4 & \texttt{dipole\_sch} & dipole, $s$-channel $\Lambda$ exchange \\
 5 & \texttt{exp\_t}      & $\exp[(t-m_\pi^2)/L^2]$ \\
-6 & \texttt{pauli\_villar} & Pauli--Villar; \textbf{C++ default} \\
+6 & \texttt{pauli\_villar} & Pauli--Villars, $\Lambda\approx0.27$~GeV~\cite{McK16} (v1.3 default) \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -416,8 +416,8 @@ published figures; see Sec.~\ref{sec:validation}).
 \toprule
 \textbf{Key} & \textbf{Default} & \textbf{Description} \\
 \midrule
-\inikey{lambda}       & 1.33  & $\Lambda$ for $\pi N / \rho N$ vertex [GeV] \\
-\inikey{lambda\_delta} & 1.39 & $\Lambda$ for $\pi\Delta$ vertex [GeV] \\
+\inikey{lambda}       & 1.56  & $\Lambda$ for $\pi N / \rho N$ vertex [GeV] \\
+\inikey{lambda\_delta} & 1.39 & $\Lambda$ for $\pi\Delta$ / $\rho\Delta$ vertex [GeV] \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -428,7 +428,17 @@ inclusive $pp\to nX$ data~\cite{HSS96} (converted to this convention,
 see~\cite{TDIS15}) are $\Lambda_{\pi N}=\Lambda_{\rho N}=1.56\pm0.07$~GeV
 and $\Lambda_{\pi\Delta}=1.39\pm0.07$~GeV.
 The $\pi\Delta$ channel always uses \inikey{lambda\_delta};
-\inikey{lambda} has no effect on it.  Recommended values for $\Lambda_{\pi N}$:
+\inikey{lambda} has no effect on it.
+
+\textbf{A cut-off belongs to a regulator.}  Fitted values differ by a
+factor $\sim5$ between form factors: McKenney \textit{et al.}~\cite{McK16}
+find 1.33~GeV (\texttt{exp\_s}), 0.85~GeV (\texttt{exp\_t}) and 0.27~GeV
+(\texttt{pauli\_villar}) from the same data.  Up to v1.3 the default was
+Pauli--Villars with 1.33~GeV, a pairing that matches no fit and gave
+$F_2^{(\pi N)}$ 1.6--1.9 times larger than the HSS model; v1.4 defaults to
+\texttt{exp\_s} / 1.56~GeV and warns when $\Lambda$ is far outside the
+published range of the chosen regulator.  Recommended values for $\Lambda_{\pi N}$
+with \texttt{exp\_s}:
 \begin{center}
 \begin{tabular}{ll}
 \toprule
@@ -449,7 +459,26 @@ $\Lambda = 1.48$~GeV & HSS $-1\sigma$ \\
 \textbf{Key} & \textbf{Default} & \textbf{Description} \\
 \midrule
 \inikey{nucleon}      & \texttt{neutron} & \texttt{neutron} or \texttt{proton} for $F_2$ ratio denominator \\
-\inikey{grv\_version} & \texttt{92}      & Pion PDF: \texttt{92} (GRV92) or \texttt{99} (GRV99) \\
+\inikey{grv\_version} & \texttt{92}      & Pion PDF: \texttt{92} (GRV92) or \texttt{99} (GRS99~\cite{GRS99}, fixed in v1.4) \\
+\inikey{pion\_strange} & \texttt{false}  & add $\tfrac29 x\bar s$ to $F_2^\pi$ (Fortran: no) \\
+\inikey{q2\_fixed}    & 0               & $>0$: fixed $Q^2$ [GeV$^2$] at every $x$; 0: $Q^2(x)$ from $E,\theta_e$ \\
+\inikey{charge\_states} & \texttt{single} & \texttt{total}: sum over charge states ($\times3$ neutral, $\times\tfrac32$ charge exchange) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Integration method and user models (v1.4)}
+
+\begin{center}
+\begin{tabular}{llp{8.3cm}}
+\toprule
+\textbf{Key} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\inikey{kbin\_method} & \texttt{grid} & \texttt{grid}: Fortran algorithm; \texttt{exact}: analytic region + Gauss--Legendre (recommended, Sec.~\ref{sec:v14}) \\
+\inikey{gl\_nodes}    & 16  & Gauss--Legendre nodes per panel (\texttt{exact}) \\
+\inikey{gl\_ypanels}  & 32  & panels in $y$ (\texttt{exact}) \\
+\inikey{splitting\_model} & --- & name of a registered \code{SplittingModel} (\texttt{Models.hh}) \\
+\inikey{pion\_sf\_model}  & --- & name of a registered \code{PionSFModel} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -587,14 +616,111 @@ Object names encode the channel and scan mode using the convention
 \texttt{g\_ratio\_<pfx>}      & TGraph  & $F_2^{(\text{channel})} / F_2^n$ \\
 \texttt{h\_ratio\_<pfx>}      & TH1D    & Ratio as histogram \\
 \texttt{c\_ratio\_<pfx>}      & TCanvas & Two-pad: curves (top) + ratio (bottom) \\
-\texttt{g\_thetascan}         & TGraph  & $F_2^{(\pi N)}(\theta_h)$ \\
-\texttt{g\_moment\_theta}     & TGraph  & Running $\int F_2\,d\theta$ \\
-\texttt{h\_thetascan}         & TH1D    & Same, as histogram \\
-\texttt{c\_thetascan}         & TCanvas & Angular distribution plot \\
+\multicolumn{3}{l}{\small Theta scan: \texttt{<pfx>} $=$ \texttt{<channel>\_theta}, e.g.\ \texttt{piN\_neutral\_theta}:} \\
+\texttt{g\_<pfx>}             & TGraph  & $F_2^{(\pi N)}(\theta_h)$ \\
+\texttt{g\_moment\_<pfx>}     & TGraph  & Running $\int F_2\,d\theta$ \\
+\texttt{h\_<pfx>}, \texttt{c\_<pfx>} & TH1D, TCanvas & histogram, angular distribution plot \\
 \texttt{RunParams}            & TNamed  & Full parameter summary string \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+% ============================================================
+\section{Changes in v1.4 (and how they were verified)}
+\label{sec:v14}
+% ============================================================
+
+Every change is listed in \texttt{CHANGELOG.md} with its motivation, its
+evidence and its numerical effect.  The rule (see \texttt{CONTRIBUTING.md})
+is: a change either reproduces all 23 validation runs \emph{bit for bit},
+or it changes numbers on purpose, with a reference, a measured effect and a
+test that fails on the old code.
+
+\subsection{How the results are verified}
+
+\begin{enumerate}
+\item \textbf{Against the published figures.}  The TDIS curves of
+  Sec.~\ref{sec:validation}, extracted exactly from the vector graphics of
+  PR12-15-006, are reproduced to $\approx1\%$ (median); this is now an
+  automatic test (\texttt{ctest}: \texttt{PionCloudValidation}).  Shifting
+  $\Lambda$ by the HSS $-1\sigma$ makes 15 of its 17 checks fail.
+\item \textbf{Against the original Fortran.}  \texttt{3Var\_theta.f} and
+  \texttt{3Var\_x.f} (T.~Hobbs), compiled and run with the same settings,
+  agree with \picloud{} to 0.07--0.16\% on the same grid once the
+  Fortran's end-point Simpson weight (2 instead of 1) is aligned; that
+  weight is also why the published curves lie $\sim1\%$ above \picloud{}.
+\item \textbf{Against an independent publication.}  The pion
+  multiplicities $\langle n\rangle_{\pi N}=\int dy\,dk_\perp^2 f$ summed over
+  charge states are 0.224 (\texttt{exp\_s}, 1.33~GeV) and 0.310
+  (Pauli--Villars, 0.27~GeV), vs.\ 0.23 and 0.31 in McKenney
+  \textit{et al.}~\cite{McK16}, Table~I.
+\item \textbf{Sum rules.}  GRV92 and GRS99 satisfy the valence number sum
+  rule, GRS99 also the momentum sum rule ($1.000\pm0.005$), as unit tests.
+\end{enumerate}
+
+\subsection{Bugs fixed}
+
+\begin{description}
+\item[GRS99 (\inikey{grv\_version = 99}).] The paper~\cite{GRS99} defines
+  $v^\pi=u_v^\pi+\bar d_v^\pi$ (both valence quarks, $\int v=2$); v1.3 used it
+  as one flavour in $F_2^\pi=\tfrac59(xV+2xS)$, used the \emph{strange}-sea
+  parametrisation (their Eqs.~A.7--A.8) as the light sea, and had the sign
+  of the $0.009s^2$ term wrong.  Effect: $F_2^{(\pi N)}$ +107\%.  Now
+  $\int V=1$ per flavour and the GRS99 momentum sum is 1; GRS99 differs from
+  GRV92 by +5 to +17\% on the TDIS tagged curves.
+\item[Default model.] Pauli--Villars with 1.33~GeV (1.33 is the
+  \texttt{exp\_s} fit, PV's is 0.27~GeV~\cite{McK16}) $\to$ \texttt{exp\_s}
+  with the HSS 1.56~GeV, as in the C interface and the TDIS proposal.  Runs
+  that relied on the defaults gave $F_2^{(\pi N)}$ 1.6--1.9$\times$ larger.
+\item[Test suite.] With CTEQ6, the tests ran in a directory without the
+  table; the Fortran \texttt{STOP} ended the suite with exit status 0
+  after $\sim80$ tests and \texttt{ctest} reported ``Passed''.  Now all
+  212 unit tests run (and the Calculator throws instead of letting the
+  Fortran terminate a host program).
+\item[Command line.] Nine options listed by \texttt{--help}
+  (\texttt{--grv}, \texttt{--nucleon}, \texttt{--precision},
+  \texttt{--inclusive}, \texttt{--verbose}, \texttt{--xmin-th}, \dots) were
+  never parsed; they work now.
+\item[Odd step counts.] The Simpson weights were wrong for an odd number of
+  intervals ($-0.4\%$ for \inikey{nk = 201}); a 3/8-rule tail makes any $n$
+  exact for cubics.  Even $n$: unchanged.
+\item[$\Delta$ + neutral.] \texttt{pi\_delta}/\texttt{rho\_delta} with
+  \inikey{dissociation = neutral} silently returned $F_2=0$; now an error.
+\end{description}
+
+\subsection{New features}
+
+\begin{description}
+\item[\inikey{kbin\_method = exact}.] The $|\vec k|$ window and the angular
+  cuts are solved analytically in $u=k_T^2$ (at most two intervals at each
+  $y$) and integrated with Gauss--Legendre.  It reaches 0.002\% in 0.3~s,
+  where the Fortran grid needs $\sim15$~s for 0.25--8\% (errors concentrated
+  near the kinematic end point), and halves the maximum deviation from the
+  published curves.  \textbf{Recommended for new results}; the default
+  stays \texttt{grid} to reproduce the Fortran.
+\item[\inikey{charge\_states = total}.] Sum over charge states (the
+  ``fully integrated'' curves); replaces the manual $\times3$ / $\times\tfrac32$.
+\item[\inikey{q2\_fixed}.] Fixed $Q^2$ instead of $Q^2(x)$ at fixed electron angle.
+\item[$\rho\Delta$ channel] (\inikey{contribution = rho\_delta}), ported
+  in v1.3 but unreachable; not validated against a published curve.
+\item[\inikey{pion\_strange}.] Optional strange quarks in $F_2^\pi$.
+\item[Pluggable models (\texttt{Models.hh}).] \code{SplittingModel} and
+  \code{PionSFModel} interfaces: a new splitting function (e.g.\ chiral EFT,
+  kaon cloud) or meson PDF is one class, injected into the Calculator or
+  registered by name (\inikey{splitting\_model}, \inikey{pion\_sf\_model}).
+  See the header of \texttt{Models.hh} and \texttt{CONTRIBUTING.md}.
+\end{description}
+
+\subsection{Open questions found in v1.4}
+\begin{itemize}
+\item $\langle n\rangle_{\pi\Delta}$: 0.027 vs.\ 0.06 in~\cite{McK16}
+  (factor 2.2), while $\pi N$ agrees.  \picloud{} reproduces the Fortran and
+  the proposal for $\pi\Delta$, so the difference is between the Fortran
+  normalisation and the 2016 paper (isospin factor, coupling, or terms
+  included).
+\item The $F_2^{p,n}$ reference curves of the proposal are not reproduced by
+  any CTEQ6 set (Sec.~\ref{sec:kbin-notes}).
+\end{itemize}
 
 % ============================================================
 \section{What's new in v1.3}
@@ -617,8 +743,12 @@ default GRV92:
 
 \begin{lstlisting}[style=iniStyle]
 grv_version = 92    # default: GRV92, matches original Fortran
-grv_version = 99    # GRV99 update from f2_pi_sub.f90
+grv_version = 99    # GRS99 (Gluck-Reya-Schienbein 1999)
 \end{lstlisting}
+\textbf{Warning:} the v1.3 implementation of this set was wrong (valence
+counted twice, strange sea used as light sea; $F_2^{(\pi N)}$ about $2\times$
+too large).  It is corrected in v1.4 (Sec.~\ref{sec:v14}); results obtained
+with \inikey{grv\_version = 99} before v1.4 must be redone.
 
 \subsection{Precision preset}
 
@@ -719,7 +849,10 @@ pion-cloud calculations of the JLab TDIS proposal PR12-15-006~\cite{TDIS15}
 (approved as E12-15-006; an earlier version is PR12-14-010~\cite{TDIS14}),
 and several of the same curves appear in Ref.~\cite{Hobbs15}.
 This section gives the input file for each published figure and overlays
-the \picloud{} v1.3 result on the original curves.
+the \picloud{} result on the original curves (v1.3 and v1.4 give
+identical numbers here: the inputs set the model explicitly and use the
+default \texttt{grid} method).  The same comparison runs automatically as
+\texttt{ctest} \texttt{PionCloudValidation}.
 
 \paragraph{How the comparison was made.}
 The proposal figures are vector graphics (\textsc{xmgrace}).  Each curve
@@ -841,15 +974,16 @@ cosph_min = 0.342            # theta_p' < 70 deg (cos 70)
 cosph_max = 0.866            # theta_p' > 30 deg (cos 30)
 ny    = 100
 nkt   = 5000
-# violet curve: replace k_min/k_max/cosph_* by  inclusive_mode = true
-#               and multiply F2piK by 3 (sum of the two charge states)
+# violet curve: inclusive_mode = true  and  charge_states = total
+#               (sum of the charge states; v1.3: multiply F2piK by 3)
 \end{lstlisting}
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.62\textwidth]{figures/fig5.pdf}
 \caption{Fig.~5 of~\cite{TDIS15} (thick) and \picloud{} kbin scan (thin).
-The inclusive \picloud{} curve has been multiplied by 3.  The large ratio
+The inclusive \picloud{} curve is the sum over charge states
+(\inikey{charge\_states = total}, i.e.\ $3\times$ neutral).  The large ratio
 excursions sit at the kinematic end points, where the curves fall steeply to zero.}
 \label{fig:fig5}
 \end{figure}
@@ -876,14 +1010,14 @@ cosph_min = 0.0              # 30-180 deg (cos(phi_k) > 0 always)
 cosph_max = 0.866
 ny    = 100
 nkt   = 5000
-# violet curve: inclusive_mode = true, multiplied by 3/2
+# violet curve: inclusive_mode = true, charge_states = total (= x3/2)
 \end{lstlisting}
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.62\textwidth]{figures/fig6.pdf}
 \caption{Fig.~6 of~\cite{TDIS15} (thick) and \picloud{} (thin).
-The inclusive \picloud{} curve has been multiplied by $3/2$.}
+The inclusive \picloud{} curve is the sum over charge states ($\tfrac32\times$ charge exchange).}
 \label{fig:fig6}
 \end{figure}
 
@@ -915,7 +1049,7 @@ nkt   = 5000
 \centering
 \includegraphics[width=0.62\textwidth]{figures/fig37.pdf}
 \caption{Fig.~37 of~\cite{TDIS15} (thick) and \picloud{} (thin).
-The inclusive \picloud{} curve has been multiplied by $3/2$.  The
+The inclusive \picloud{} curve is the sum over charge states ($\tfrac32\times$ charge exchange).  The
 projected data points of the original figure are not shown.}
 \label{fig:fig37}
 \end{figure}
@@ -952,7 +1086,12 @@ Lessons for reproducing the published curves:
   $x\gtrsim0.15$.
 \item \textbf{Charge states.}  One run is one charge state.  The
   ``fully integrated'' violet curves are the sum over charge states:
-  $3\times$ neutral, or $\tfrac32\times$ charge exchange (agreement $0.1\%$).
+  $3\times$ neutral, or $\tfrac32\times$ charge exchange (agreement $0.1\%$);
+  since v1.4 use \inikey{charge\_states = total}.
+\item \textbf{Integration.}  With \inikey{kbin\_method = exact} (v1.4) the
+  maximum deviations of the kbin curves halve (Fig.~6: 6--7\% $\to$ 3.5\%;
+  Fig.~37: $\sim2.5\%\to$ 1--1.6\%): most of the end-point deviation was an
+  artefact of the Fortran $k_T$ grid.
 \item \textbf{$\pi\Delta$ cut-off.}  The $\pi\Delta$ channel uses
   \inikey{lambda\_delta}.  Changing \inikey{lambda} does not affect it.
 \item \textbf{Angular window.}  $\cos\phi_k>0$ always, so
@@ -1038,9 +1177,41 @@ PionCloud::ScanResults res2 = calc.runAll();
 \code{runThetaScan(out)} & theta-scan; fills \code{out.thetaScan} \\
 \code{runKBinScan(out)}  & kbin-scan; fills \code{out.xScan} \\
 \code{runAll()}          & runs modes selected by \code{p\_.scanMode}; returns \code{ScanResults} \\
+\code{eval(x, Q2)}       & single point of the kbin quantity (generator use) \\
+\code{Calculator(p, split, sf)} & (v1.4) constructor injecting user models \\
+\code{splittingModel()}, \code{pionSFModel()} & (v1.4) the models in use \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+\subsection{User models (Models.hh, v1.4)}
+
+The calculation needs two physics ingredients, each behind an interface:
+\begin{lstlisting}[style=cppstyle]
+struct SplittingModel {               // f(y, kT) per d(kT^2)
+    virtual double f(double y, double kT) const = 0;
+    virtual std::string name() const = 0;
+};
+struct PionSFModel {                  // F2 of the meson
+    virtual double F2(double xpi, double Q2) const = 0;
+    virtual std::string name() const = 0;
+};
+\end{lstlisting}
+A new model is one class; it is either injected,
+\begin{lstlisting}[style=cppstyle]
+struct MyChiralPiN : PionCloud::SplittingModel { ... };
+PionCloud::Calculator calc(p, std::make_shared<MyChiralPiN>());
+\end{lstlisting}
+or registered by name and then selected from any input file with
+\inikey{splitting\_model = piN\_chiralEFT}:
+\begin{lstlisting}[style=cppstyle]
+PionCloud::ModelRegistry::addSplitting("piN_chiralEFT",
+    [](const PionCloud::RunParams &p){ return std::make_shared<MyChiralPiN>(); });
+\end{lstlisting}
+All scans, outputs and the C interface then use it.  The built-in models
+(\code{BuiltinSplitting}, \code{BuiltinPionSF}) wrap the Fortran ports and
+give bit-identical results.  Check a new splitting function's normalisation
+against a published multiplicity (see \texttt{CONTRIBUTING.md}).
 
 \textbf{Private static helpers:}
 
@@ -1248,6 +1419,18 @@ several threads at once.
 # kbin-scan / |k| window
 --kmin --kmax --nk
 --ny --nkt --cosph-min --cosph-max
+--precision fast|normal|publication|custom
+--inclusive               Remove the |k| and angle cuts
+
+# Physics options
+--nucleon n|p             F2 denominator: neutron or proton
+--grv 92|99               Pion PDF: GRV92 or GRS99
+--strange                 Include strange quarks in F2pi
+--quiet / --verbose       Progress output
+# (--flag 3 = rho-Delta.  --nucleon, --grv, --precision, --inclusive,
+#  --verbose and --x/kmin/max-th were listed in v1.3 but did not work.)
+# Options without a CLI flag (input file only): kbin_method, q2_fixed,
+#  charge_states, pion_strange, splitting_model, pion_sf_model
 \end{lstlisting}
 
 % ============================================================
@@ -1259,6 +1442,8 @@ PionCloud/
 |---- CMakeLists.txt
 |---- README.md
 |---- TODO.md
+|---- CHANGELOG.md           # every change: what, why, evidence, effect
+|---- CONTRIBUTING.md        # workflow and numerical-change policy
 |---- input_files/           # ready-to-use inputs for published figures
 |     |---- fig47_proposal/    # Fig.47 of PR12-15-006 (theta scan)
 |     |---- fig37_proposal/    # Fig.37 (piN, rhoN, piDelta, 250-400 MeV)
@@ -1273,10 +1458,12 @@ PionCloud/
 |---- include/
 |     |---- PhysicsParams.hh   # RunParams, enums
 |     |---- SplittingFunctions.hh  # fypiN, f_rhoN, f_RhoDel, fypiD
-|     |---- GRV.hh             # GRV92 pion PDFs
+|     |---- GRV.hh             # GRV92, GRS99 pion PDFs
 |     |---- Kinematics.hh      # Q2, phase space, Simpson weights
 |     |---- Results.hh         # XScanPoint, ThetaScanPoint, ScanResults
-|     |---- Calculator.hh      # main integration engine
+|     |---- Calculator.hh      # main integration engine (+ how to modify)
+|     |---- Models.hh          # SplittingModel / PionSFModel, registry (v1.4)
+|     |---- Quadrature.hh      # Gauss-Legendre, exact kbin region (v1.4)
 |     |---- CTEQ6.hh           # extern C bridge to Fortran
 |     |---- InputReader.hh     # INI file parser
 |     `---- OutputWriter.hh    # ASCII + ROOT writer
@@ -1287,7 +1474,8 @@ PionCloud/
 |     `---- main.cc
 |---- tests/
 |     |---- CMakeLists.txt
-|     `---- test_all.cc        # 153 tests, 0 failures
+|     |---- test_all.cc        # 212 unit tests
+|     `---- validation.cc      # 17 checks vs the published TDIS curves
 `---- docs/
     |---- PionCloud_manual.tex   # this document
     |---- figures/               # comparison plots used in this manual
@@ -1302,20 +1490,21 @@ The complete, current list is maintained in \texttt{TODO.md}.
 Main open items:
 
 \begin{enumerate}
-\item \textbf{Sum of channels}: a combined run giving
-  $\pi N+\rho N+\pi\Delta$ (and the sum over charge states).
-
+\item \textbf{$\pi\Delta$ normalisation} vs.\ McKenney \textit{et al.}\
+  (factor 2.2 in $\langle n\rangle_{\pi\Delta}$; Sec.~\ref{sec:v14}).
+\item \textbf{Default integration method}: whether to make
+  \inikey{kbin\_method = exact} the default (changes kbin results by
+  typically $<1\%$, more near end points).
+\item \textbf{Sum of channels} ($\pi N+\rho N+\pi\Delta$ in one run); the
+  sum over charge states exists since v1.4.
+\item \textbf{$|\vec k|$-scan and t-scan modes} (Fig.~45 of~\cite{TDIS15};
+  $F_2^{(\pi N)}$ vs.\ $-t$).
+\item \textbf{LHAPDF backend} for modern pion/nucleon PDFs and
+  \textbf{Python bindings}; both need packages not installed on the
+  development machine.  The \code{PionSFModel} interface is the hook.
 \item \textbf{Thread safety}: CTEQ6 Fortran \texttt{COMMON} blocks.
-
-\item \textbf{Automated regression tests} against the published curves
-  of Sec.~\ref{sec:validation} (x and theta scans in particular).
-
-\item \textbf{$|\vec k|$-scan and t-scan modes}: $F_2^{(\pi N)}$ vs
-  $|\vec k|$ (Fig.~45 of~\cite{TDIS15}) and vs Mandelstam $-t$,
-  binning the $(y, k_T)$ integrand by $t = -k_T^2 - m_N^2 y^2/(1-y)$.
-
-\item \textbf{$F_2^{p,n}$ normalisation}: CTEQ6M is 3--7\% above the
-  $F_2$ curves of the published figures (Sec.~\ref{sec:kbin-notes}).
+\item \textbf{$F_2^{p,n}$} reference curves of the proposal not reproduced
+  by any CTEQ6 set.
 \end{enumerate}
 
 % ============================================================
@@ -1336,6 +1525,13 @@ Main open items:
 \bibitem{GRV92} M.~Gl\"uck, E.~Reya and A.~Vogt, Z.\ Phys.\ C
   \textbf{53}, 651 (1992).
 \bibitem{CTEQ6} J.~Pumplin \textit{et al.}, JHEP \textbf{0207}, 012 (2002).
+\bibitem{GRS99} M.~Gl\"uck, E.~Reya and I.~Schienbein, ``Pionic parton
+  distributions revisited'', Eur.\ Phys.\ J.\ C \textbf{10}, 313 (1999),
+  arXiv:hep-ph/9903288.
+\bibitem{McK16} J.~R.~McKenney, N.~Sato, W.~Melnitchouk and C.-R.~Ji,
+  ``Pion structure function from leading neutron electroproduction and
+  SU(2) flavor asymmetry'', Phys.\ Rev.\ D \textbf{93}, 054011 (2016),
+  arXiv:1512.04459.
 \end{thebibliography}
 
 % ============================================================

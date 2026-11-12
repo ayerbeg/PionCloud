@@ -120,7 +120,7 @@ form_factor  = exp_s        # typ=2
 contribution = rho
 
 [Physics - Cutoff Parameters]
-lambda       = 1.56         # HSS central value
+lambda       = 1.56         # HSS central value (default since v1.4)
 
 [x-Scan Settings]
 x_min = 0.02
@@ -187,11 +187,11 @@ done
 |------|------|-------|
 | 0 | `monopole` | |
 | 1 | `dipole` | |
-| 2 | `exp_s` | s-dep. exponential; HSS convention |
+| 2 | `exp_s` | s-dep. exponential exp[(M²−s)/Λ²]; HSS Λ = 1.56 GeV **[default since v1.4]** |
 | 3 | `cov_dipole` | Covariant dipole |
 | 4 | `dipole_sch` | Dipole, s-channel Λ exchange |
 | 5 | `exp_t` | t-dep. exponential; PRD93,054011(2016) |
-| 6 | `pauli_villar` | Pauli-Villar; PRD93,054011(2016) **[default]** |
+| 6 | `pauli_villar` | Pauli–Villars, PRD93,054011(2016); use Λ ≈ 0.27 GeV (v1.3 default with 1.33 GeV — wrong pairing) |
 
 ### x-scan
 ```
@@ -278,6 +278,27 @@ can be merged without name collisions. The prefix is `<channel>_<mode>`:
 | Red ρN | `g_rhoN_kbin` |
 | Green πΔ | `g_piDelta_kbin` |
 | Fig.47 θ distribution | `g_piN_neutral_theta` |
+
+### What changed in v1.4 (details: `CHANGELOG.md`, manual Sec. "Changes in v1.4")
+
+- **Bug fixes that change numbers:**
+  - `grv_version = 99` (GRS99) counted the pion valence twice and used the strange sea as
+    the light sea, giving F₂^(πN) about 2× too large. It is corrected and checked against
+    the GRS99 sum rules.
+  - The default model is now `exp_s` with Λ = 1.56 GeV (HSS). It was Pauli–Villars with
+    1.33 GeV, which matches no published fit and gave F₂^(πN) 1.6–1.9× too large.
+  - Odd integration step counts are now integrated correctly.
+- **Test suite:** in v1.3 ctest "passed" after a Fortran `STOP` (exit 0) had aborted the
+  suite at about test 80. Now 212 unit tests and 17 checks against the published TDIS
+  curves really run.
+- **New keys:**
+  - `kbin_method = exact`: analytic cut region with Gauss–Legendre; 0.002% in 0.3 s,
+    recommended.
+  - `charge_states = total`, `q2_fixed`, `pion_strange`, `contribution = rho_delta`.
+  - `splitting_model` / `pion_sf_model`: user models, see `include/Models.hh`.
+- **CLI:** the advertised options `--grv`, `--nucleon`, `--precision`, `--inclusive`,
+  `--verbose`, `--xmin-th`, … now work.
+- **Contributing:** read `CONTRIBUTING.md` first (numerical-change policy).
 
 ### Validation against the published figures
 
